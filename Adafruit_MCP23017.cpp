@@ -55,12 +55,12 @@ static inline uint8_t wirerecv(TwoWire *theWire) {
 /**
  * Bit number associated to a give Pin
  */
-uint8_t Adafruit_MCP23017::bitForPin(uint8_t pin) { return pin % 8; }
+inline uint8_t Adafruit_MCP23017::bitForPin(uint8_t pin) { return pin % 8; }
 
 /**
  * Register address, port dependent, for a given PIN
  */
-uint8_t Adafruit_MCP23017::regForPin(uint8_t pin, uint8_t portAaddr,
+inline uint8_t Adafruit_MCP23017::regForPin(uint8_t pin, uint8_t portAaddr,
                                      uint8_t portBaddr) {
   return (pin < 8) ? portAaddr : portBaddr;
 }
@@ -205,6 +205,16 @@ void Adafruit_MCP23017::writeGPIOAB(uint16_t ba) {
   wiresend(MCP23017_GPIOA, _wire);
   wiresend(ba & 0xFF, _wire);
   wiresend(ba >> 8, _wire);
+  _wire->endTransmission();
+}
+
+/**
+ * Writes all the pins in one go for a GPIO.
+ */
+void Adafruit_MCP23017::writeGPIO(uint8_t b, uint8_t value) {
+  _wire->beginTransmission(MCP23017_ADDRESS | i2caddr);
+  wiresend(b ? MCP23017_GPIOB : MCP23017_GPIOA, _wire);
+  wiresend(value, _wire);
   _wire->endTransmission();
 }
 
