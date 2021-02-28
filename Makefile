@@ -2,11 +2,12 @@
 
 # env UPLOAD_PORT=/dev/cuaU1 gmake flash
 
-BUILD_ROOT = $(CURDIR)/obj
-EXCLUDE_DIRS = $(BUILD_ROOT)
+BUILD_ROOT =	$(CURDIR)/obj
+EXCLUDE_DIRS =	$(BUILD_ROOT) \
+		$(CURDIR)/z80
 
-ESP_ROOT =  /usr/local/share/arduino/hardware/espressif/esp8266
-ARDUINO_ROOT = /usr/local/share/arduino
-ARDUINO_LIBS = ${ESP_ROOT}/libraries
+ESP_ROOT =	/usr/local/share/arduino/hardware/espressif/esp8266
+ARDUINO_ROOT =	/usr/local/share/arduino
+ARDUINO_LIBS =	${ESP_ROOT}/libraries
 
 include /usr/local/share/makeEspArduino/makeEspArduino.mk
