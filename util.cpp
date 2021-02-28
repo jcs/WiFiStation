@@ -1,22 +1,39 @@
-#include <Arduino.h>
-#include <Wire.h>
-#include "mailstation.h"
 #include "wifistation.h"
+#include "mailstation.h"
+
+struct eeprom_data *settings;
 
 void
 setup(void)
 {
 	uint16_t v;
 
+	EEPROM.begin(sizeof(struct eeprom_data));
+	settings = (struct eeprom_data *)EEPROM.getDataPtr();
+	if (memcmp(settings->magic, EEPROM_MAGIC_BYTES,
+	    sizeof(settings->magic)) != 0) {
+		/* start over */
+		memset(settings, 0, sizeof(struct eeprom_data));
+		memcpy(settings->magic, EEPROM_MAGIC_BYTES,
+		    sizeof(settings->magic));
+		settings->baud = 115200;
+	}
+
+	Serial.begin(settings->baud);
+	delay(1000);
+
 	led_setup();
 	ms_setup();
 
 	WiFi.mode(WIFI_STA);
-	WiFi.disconnect();
 
-	Serial.begin(115200);
+	/* don't require wifi_pass in case it's an open network */
+	if (settings->wifi_ssid[0] == 0)
+		WiFi.disconnect();
+	else
+		WiFi.begin(settings->wifi_ssid, settings->wifi_pass);
 
-	delay(500);
+	Serial.print("OK\r\n");
 }
 
 void
@@ -83,6 +100,7 @@ output(char c)
 	Serial.print(c);
 
 	/* TODO: print to ms */
+
 	return 0;
 }
 

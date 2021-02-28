@@ -22,6 +22,9 @@ const int pStrobe   = 11; /* output to lpt pin 11 (busy) */
 
 Adafruit_MCP23017 mcp;
 
+/* cache data pin direction */
+int data_mode;
+
 void
 ms_setup(void)
 {

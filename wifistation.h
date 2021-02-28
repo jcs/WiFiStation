@@ -1,14 +1,24 @@
 #ifndef __WIFISTATION_H__
 #define __WIFISTATION_H__
 
+#include <Arduino.h>
+#include <EEPROM.h>
 #include <ESP8266WiFi.h>
+#include <Wire.h>
+
+struct __attribute((__packed__)) eeprom_data {
+	char magic[4]; /* "jcs" */
+#define EEPROM_MAGIC_BYTES	"jcs\0"
+	char wifi_ssid[64];
+	char wifi_pass[64];
+	uint32_t baud;
+};
+
+extern struct eeprom_data *settings;
 
 /* these are ESP8266 pins */
 const int pRedLED   =  0;
 const int pBlueLED  =  2;
-
-/* cache data pin direction */
-static int data_mode;
 
 /* wifistation.ino */
 void exec_cmd(char *cmd, size_t len);

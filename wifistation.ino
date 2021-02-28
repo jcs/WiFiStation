@@ -83,23 +83,29 @@ exec_cmd(char *cmd, size_t len)
 	case 'i':
 		if (len > 4)
 			goto error;
+
 		switch (len == 3 ? '0' : cmd[3]) {
 		case '0':
-			/* ATI or ATI0 */
-			outputf("WiFi SSID:      %s\r\n", WiFi.SSID());
-			outputf("WiFi Connected: %s\r\n",
+			/* ATI or ATI0: show settings */
+			outputf("Baud rate:         %d\r\n",
+			    settings->baud);
+			outputf("Default WiFi SSID: %s\r\n",
+			    settings->wifi_ssid);
+			outputf("Current WiFi SSID: %s\r\n", WiFi.SSID());
+			outputf("WiFi Connected:    %s\r\n",
 			    WiFi.status() == WL_CONNECTED ? "yes" : "no");
 			if (WiFi.status() == WL_CONNECTED) {
-				outputf("IP Address:     %s\r\n",
+				outputf("IP Address:        %s\r\n",
 				    WiFi.localIP().toString().c_str());
-				outputf("Gateway IP:     %s\r\n",
+				outputf("Gateway IP:        %s\r\n",
 				    WiFi.gatewayIP().toString().c_str());
-				outputf("DNS Server IP:  %s\r\n",
+				outputf("DNS Server IP:     %s\r\n",
 				    WiFi.dnsIP().toString().c_str());
 			}
 			output("OK\r\n");
 			break;
 		case '1': {
+			/* ATI1: scan for wifi networks */
 			int n = WiFi.scanNetworks();
 
 			for (int i = 0; i < n; i++) {
@@ -135,6 +141,66 @@ exec_cmd(char *cmd, size_t len)
 			output("OK\r\n");
 			break;
 		}
+		default:
+			goto error;
+		}
+		break;
+	case 'Z':
+	case 'z':
+		output("OK\r\n");
+		ESP.reset();
+		break;
+	case '$':
+		/* wifi232 commands */
+
+		/* at$ssid: wifi ssid */
+		if (strcasecmp(cmd, "at$ssid?") == 0) {
+			outputf("%s\r\nOK\r\n", settings->wifi_ssid);
+		} else if (strncasecmp(cmd, "at$ssid=", 8) == 0) {
+			memset(settings->wifi_ssid, 0,
+			    sizeof(settings->wifi_ssid));
+			strncpy(settings->wifi_ssid, cmd + 8,
+			    sizeof(settings->wifi_ssid));
+			output("OK\r\n");
+
+			WiFi.disconnect();
+			if (settings->wifi_ssid[0])
+				WiFi.begin(settings->wifi_ssid,
+				    settings->wifi_pass);
+		}
+		/* at$pass: wep/wpa passphrase */
+		else if (strcasecmp(cmd, "at$pass?") == 0) {
+			outputf("%s\r\nOK\r\n", settings->wifi_pass);
+		} else if (strncasecmp(cmd, "at$pass=", 8) == 0) {
+			memset(settings->wifi_pass, 0,
+			    sizeof(settings->wifi_pass));
+			strncpy(settings->wifi_pass, cmd + 8,
+			    sizeof(settings->wifi_pass));
+			output("OK\r\n");
+
+			WiFi.disconnect();
+			if (settings->wifi_ssid[0])
+				WiFi.begin(settings->wifi_ssid,
+				    settings->wifi_pass);
+		} else
+			goto error;
+		break;
+	case '&':
+		if (len < 4)
+			goto error;
+
+		switch (cmd[3]) {
+		case 'W':
+		case 'w':
+			if (len != 4)
+				goto error;
+
+			/* AT&W: save settings */
+			if (!EEPROM.commit())
+				goto error;
+
+			output("OK\r\n");
+			break;
 		default:
 			goto error;
 		}
