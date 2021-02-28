@@ -1,200 +1,150 @@
-#include <Wire.h>
+#include "wifistation.h"
 
-#include "Adafruit_MCP23017.h"
+enum {
+	STATE_IDLE,
+	STATE_UPLOAD,
+};
 
-Adafruit_MCP23017 mcp;
-
-/* this is a ESP8266 pin */
-const int pRedLED   =  0;
-const int pBlueLED  =  2;
-
-/* these are pins on the MCP23017 */
-const int pData0    =  0;
-const int pData1    =  1;
-const int pData2    =  2;
-const int pData3    =  3;
-const int pData4    =  4;
-const int pData5    =  5;
-const int pData6    =  6;
-const int pData7    =  7;
-
-const int pBusy     =  8; /* input from lpt pin 1 (strobe) */
-const int pAck      =  9; /* input from lpt pin 14 (linefeed) */
-
-const int pLineFeed = 10; /* output to lpt pin 10 (ack) */
-const int pStrobe   = 11; /* output to lpt pin 11 (busy) */
-
-/* cache data pin direction */
-int data_mode;
-
-void error_flash(void);
-int msread(void);
-int mswrite(char c);
+static int state = STATE_IDLE;
+static char curcmd[128] = { 0 };
+static unsigned int curcmdpos = 0;
 
 void
-setup()
-{
-	uint16_t v;
-
-	/* led */
-	pinMode(pRedLED, OUTPUT);
-	digitalWrite(pRedLED, HIGH);
-	pinMode(pBlueLED, OUTPUT);
-	digitalWrite(pBlueLED, HIGH);
-
-	/* use 1.7mhz i2c */
-	Wire.setClock(1700000);
-	mcp.begin(&Wire);
-
-	/*
-	 * check for MCP23017 returning all ones (or most likely, the i2c
-	 * library returning all 1s) and flash lights until it's fixed
-	 */
-	while ((v = mcp.readGPIOAB()) && (v == 0xffff || v == 0xffffffff))
-		error_flash();
-
-	digitalWrite(pRedLED, HIGH);
-	digitalWrite(pBlueLED, HIGH);
-
-	/* data lines will flip between input/output, start in output mode */
-	data_mode = OUTPUT;
-	for (int i = 0; i <= 7; i++)
-		mcp.pinMode(i, OUTPUT);
-
-	/* strobe (control) */
-	mcp.pinMode(pStrobe, OUTPUT);
-	mcp.digitalWrite(pStrobe, LOW);
-
-	/* linefeed (control) */
-	mcp.pinMode(pLineFeed, OUTPUT);
-	mcp.digitalWrite(pLineFeed, LOW);
-
-	/* ack (status) */
-	mcp.pinMode(pAck, INPUT);
-	mcp.pullUp(pAck, LOW);
-
-	/* busy (status) */
-	mcp.pinMode(pBusy, INPUT);
-	mcp.pullUp(pBusy, LOW);
-
-	Serial.begin(115200);
-
-	delay(500);
-}
-
-void
-loop()
+loop(void)
 {
 	int c;
 	char b;
 
+#if 0
 	if ((c = msread()) != -1)
 		Serial.write(c);
+#endif
 
-	if (Serial.available()) {
-		b = Serial.peek();
+	if (!Serial.available())
+		return;
 
-		if (mswrite(b) == 0) {
-			/* remove it from the buffer */
-			b = Serial.read();
+	b = Serial.read();
 
-			/* and echo it */
-			Serial.write(b);
+	switch (state) {
+	case STATE_IDLE:
+		if (b == '\r' && Serial.peek() == '\n')
+			Serial.read();
+
+		/* USR modem mode, ignore input not starting with 'at' */
+		if (curcmdpos == 0 && (b != 'A' && b != 'a')) {
+			break;
+		} else if (curcmdpos == 1 && (b != 'T' && b != 't')) {
+			outputf("\b \b");
+			curcmdpos = 0;
+			break;
 		}
+
+		switch (b) {
+		case '\r':
+		case '\n':
+			output("\r\n");
+			curcmd[curcmdpos] = '\0';
+			exec_cmd((char *)&curcmd, curcmdpos);
+			curcmd[0] = '\0';
+			curcmdpos = 0;
+			break;
+		case '\b':
+		case 127:
+			if (curcmdpos) {
+				output("\b \b");
+				curcmdpos--;
+			}
+			break;
+		default:
+			curcmd[curcmdpos++] = b;
+			output(b);
+		}
+		break;
+	default:
+		output("unknown state ");
 	}
 }
 
 void
-error_flash(void)
+exec_cmd(char *cmd, size_t len)
 {
-	digitalWrite(pRedLED, LOW);
-	digitalWrite(pBlueLED, HIGH);
-	delay(100);
-	digitalWrite(pRedLED, HIGH);
-	digitalWrite(pBlueLED, LOW);
-	delay(100);
-}
+	if (len < 2 ||
+	    (cmd[0] != 'A' && cmd[0] != 'a') ||
+	    (cmd[1] != 'T' && cmd[1] != 't'))
+		goto error;
 
-int
-msread(void)
-{
-	unsigned long t;
-	char c, c2;
-
-	if (mcp.digitalRead(pBusy) != HIGH)
-		return -1;
-
-	/* but when both lines are high, something's not right */
-	if (mcp.digitalRead(pAck) == HIGH)
-		return -1;
-
-	if (data_mode != INPUT) {
-		for (int i = 0; i < 8; i++)
-			mcp.pinMode(pData0 + i, INPUT);
-
-		data_mode = INPUT;
+	if (len == 2) {
+		output("OK\r\n");
+		return;
 	}
 
-	mcp.digitalWrite(pLineFeed, HIGH);
+	switch (cmd[2]) {
+	case 'I':
+	case 'i':
+		if (len > 4)
+			goto error;
+		switch (len == 3 ? '0' : cmd[3]) {
+		case '0':
+			/* ATI or ATI0 */
+			outputf("WiFi SSID:      %s\r\n", WiFi.SSID());
+			outputf("WiFi Connected: %s\r\n",
+			    WiFi.status() == WL_CONNECTED ? "yes" : "no");
+			if (WiFi.status() == WL_CONNECTED) {
+				outputf("IP Address:     %s\r\n",
+				    WiFi.localIP().toString().c_str());
+				outputf("Gateway IP:     %s\r\n",
+				    WiFi.gatewayIP().toString().c_str());
+				outputf("DNS Server IP:  %s\r\n",
+				    WiFi.dnsIP().toString().c_str());
+			}
+			output("OK\r\n");
+			break;
+		case '1': {
+			int n = WiFi.scanNetworks();
 
-	t = millis();
-	while (mcp.digitalRead(pBusy) == HIGH) {
-		if (millis() - t > 500) {
-			mcp.digitalWrite(pLineFeed, LOW);
-			error_flash();
-			return -1;
+			for (int i = 0; i < n; i++) {
+				outputf("%02d: %s (chan %d, %ddBm, ",
+				    i + 1,
+				    WiFi.SSID(i).c_str(),
+				    WiFi.channel(i),
+				    WiFi.RSSI(i));
+
+				switch (WiFi.encryptionType(i)) {
+				case ENC_TYPE_WEP:
+					output("WEP");
+					break;
+				case ENC_TYPE_TKIP:
+					output("WPA-PSK");
+					break;
+				case ENC_TYPE_CCMP:
+					output("WPA2-PSK");
+					break;
+				case ENC_TYPE_NONE:
+					output("NONE");
+					break;
+				case ENC_TYPE_AUTO:
+					output("WPA-PSK/WPA2-PSK");
+					break;
+				default:
+					outputf("?(%d)",
+					    WiFi.encryptionType(i));
+				}
+
+				output(")\r\n");
+			}
+			output("OK\r\n");
+			break;
 		}
-		yield();
-	}
-
-	c = mcp.readGPIO(0);
-
-	mcp.digitalWrite(pLineFeed, LOW);
-
-	/* invert and reverse data byte */
-	c2 = 0;
-	for (int i = 0; i < 8; i++)
-		if (!(c & (1 << i)))
-			c2 |= (1 << i);
-
-	return c2;
-}
-
-int
-mswrite(char c)
-{
-	unsigned long t;
-
-	if (data_mode != OUTPUT) {
-		for (int i = 0; i < 8; i++)
-			mcp.pinMode(pData0 + i, OUTPUT);
-
-		data_mode = OUTPUT;
-	}
-
-	mcp.digitalWrite(pStrobe, HIGH);
-
-	t = millis();
-	while (mcp.digitalRead(pAck) == LOW) {
-		if (millis() - t > 500) {
-			mcp.digitalWrite(pStrobe, LOW);
-			error_flash();
-			return -1;
+		default:
+			goto error;
 		}
-		ESP.wdtFeed();
+		break;
+	default:
+		goto error;
 	}
 
-	/* write all data lines */
-	mcp.writeGPIO(0, c);
+	return;
 
-	mcp.digitalWrite(pStrobe, LOW);
-
-	t = millis();
-	while (mcp.digitalRead(pAck) == HIGH) {
-		if (millis() - t > 500)
-			return -1;
-		ESP.wdtFeed();
-	}
-
-	return 0;
+error:
+	output("ERROR\r\n");
 }
