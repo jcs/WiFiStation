@@ -1,5 +1,4 @@
 #include "wifistation.h"
-#include "mailstation.h"
 
 struct eeprom_data *settings;
 

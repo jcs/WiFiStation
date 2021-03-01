@@ -12,11 +12,11 @@ clean:
 
 # parallel loader
 loader.rel: loader.asm
-	$(ASZ80) -o $@ $>
+	$(ASZ80) -o $@ $<
 
 loader.ihx: loader.rel
-	$(SDCC) --no-std-crt0 -o $@ $>
+	$(SDCC) --no-std-crt0 -o $@ $<
 
 loader.bin: loader.ihx
-	objcopy -Iihex -Obinary $> $@
+	objcopy -Iihex -Obinary $< $@
 	hexdump -C $@

@@ -61,16 +61,24 @@ loop(void)
 		}
 		break;
 	default:
-		output("unknown state ");
+		outputf("unknown state %d\r\n", state);
 	}
 }
 
 void
 exec_cmd(char *cmd, size_t len)
 {
-	if (len < 2 ||
-	    (cmd[0] != 'A' && cmd[0] != 'a') ||
-	    (cmd[1] != 'T' && cmd[1] != 't'))
+	unsigned long t;
+
+	char *lcmd = (char *)malloc(len);
+	if (lcmd == NULL)
+		return;
+
+	for (size_t i = 0; i < len; i++)
+		lcmd[i] = tolower(cmd[i]);
+	lcmd[len] = '\0';
+
+	if (len < 2 || lcmd[0] != 'a' || lcmd[1] != 't')
 		goto error;
 
 	if (len == 2) {
@@ -78,8 +86,7 @@ exec_cmd(char *cmd, size_t len)
 		return;
 	}
 
-	switch (cmd[2]) {
-	case 'I':
+	switch (lcmd[2]) {
 	case 'i':
 		if (len > 4)
 			goto error;
@@ -87,7 +94,7 @@ exec_cmd(char *cmd, size_t len)
 		switch (len == 3 ? '0' : cmd[3]) {
 		case '0':
 			/* ATI or ATI0: show settings */
-			outputf("Baud rate:         %d\r\n",
+			outputf("Serial baud rate:  %d\r\n",
 			    settings->baud);
 			outputf("Default WiFi SSID: %s\r\n",
 			    settings->wifi_ssid);
@@ -145,7 +152,6 @@ exec_cmd(char *cmd, size_t len)
 			goto error;
 		}
 		break;
-	case 'Z':
 	case 'z':
 		output("OK\r\n");
 		ESP.reset();
@@ -153,10 +159,11 @@ exec_cmd(char *cmd, size_t len)
 	case '$':
 		/* wifi232 commands */
 
-		/* at$ssid: wifi ssid */
-		if (strcasecmp(cmd, "at$ssid?") == 0) {
+		if (strcmp(lcmd, "at$ssid?") == 0) {
+			/* AT$SSID?: print wifi ssid */
 			outputf("%s\r\nOK\r\n", settings->wifi_ssid);
-		} else if (strncasecmp(cmd, "at$ssid=", 8) == 0) {
+		} else if (strncmp(lcmd, "at$ssid=", 8) == 0) {
+			/* AT$SSID=...: set wifi ssid */
 			memset(settings->wifi_ssid, 0,
 			    sizeof(settings->wifi_ssid));
 			strncpy(settings->wifi_ssid, cmd + 8,
@@ -167,11 +174,11 @@ exec_cmd(char *cmd, size_t len)
 			if (settings->wifi_ssid[0])
 				WiFi.begin(settings->wifi_ssid,
 				    settings->wifi_pass);
-		}
-		/* at$pass: wep/wpa passphrase */
-		else if (strcasecmp(cmd, "at$pass?") == 0) {
+		} else if (strcmp(lcmd, "at$pass?") == 0) {
+			/* AT$PASS?: print wep/wpa passphrase */
 			outputf("%s\r\nOK\r\n", settings->wifi_pass);
-		} else if (strncasecmp(cmd, "at$pass=", 8) == 0) {
+		} else if (strncmp(lcmd, "at$pass=", 8) == 0) {
+			/* AT$PASS=...: store wep/wpa passphrase */
 			memset(settings->wifi_pass, 0,
 			    sizeof(settings->wifi_pass));
 			strncpy(settings->wifi_pass, cmd + 8,
@@ -182,6 +189,86 @@ exec_cmd(char *cmd, size_t len)
 			if (settings->wifi_ssid[0])
 				WiFi.begin(settings->wifi_ssid,
 				    settings->wifi_pass);
+		} else if (strncmp(lcmd, "at$upload", 9) == 0) {
+			/* AT$UPLOAD: mailstation program loader */
+			int bytes = 0;
+			unsigned char b;
+
+			if (sscanf(lcmd, "at$upload%u", &bytes) != 1 ||
+			    bytes < 1)
+				goto error;
+
+			/*
+			 * Only use Serial writing from here on out, output()
+			 * and outputf() will try to write to the MailStation.
+			 */
+
+			/* send low and high bytes of size */
+			if (ms_write(bytes & 0xff) != 0 ||
+			    ms_write((bytes >> 8) & 0xff) != 0) {
+				Serial.printf("ERROR MailStation failed to "
+				    "receive size\r\n");
+				break;
+			}
+
+			Serial.printf("OK send your %d byte%s\r\n", bytes,
+			    bytes == 1 ? "" : "s");
+
+			t = millis();
+			while (bytes > 0) {
+				if (!Serial.available()) {
+					if (millis() - t > 5000)
+						break;
+					yield();
+					continue;
+				}
+
+				b = Serial.read();
+				if (ms_write(b) != 0)
+					break;
+				Serial.write(b);
+				bytes--;
+				t = millis();
+			}
+
+			if (bytes == 0)
+				Serial.print("\r\nOK\r\n");
+			else
+				Serial.printf("\r\nERROR MailStation failed to "
+				    "receive byte with %d byte%s left\r\n",
+				    bytes, (bytes == 1 ? "" : "s"));
+
+			break;
+		} else if (strcmp(lcmd, "at$watch") == 0) {
+			/* AT$WATCH: watch MCP23017 lines for debugging */
+			uint16_t prev = UINT16_MAX;
+			int i;
+
+			ms_datadir(INPUT);
+
+			for (;;) {
+				yield();
+
+				/* watch for ^C */
+				if (Serial.available() && Serial.read() == 3)
+					break;
+
+				uint16_t all = ms_status();
+				if (all != prev) {
+					Serial.print("DATA: ");
+					for (i = 0; i < 8; i++)
+						Serial.print((all & (1 << i)) ?
+						    '1' : '0');
+
+					Serial.print(" STATUS: ");
+					for (; i < 16; i++)
+						Serial.print((all & (1 << i)) ?
+						    '1' : '0');
+					Serial.print("\r\n");
+					prev = all;
+				}
+			}
+			Serial.print("OK\r\n");
 		} else
 			goto error;
 		break;
@@ -189,8 +276,7 @@ exec_cmd(char *cmd, size_t len)
 		if (len < 4)
 			goto error;
 
-		switch (cmd[3]) {
-		case 'W':
+		switch (lcmd[3]) {
 		case 'w':
 			if (len != 4)
 				goto error;
@@ -209,8 +295,12 @@ exec_cmd(char *cmd, size_t len)
 		goto error;
 	}
 
+	if (lcmd)
+		free(lcmd);
 	return;
 
 error:
+	if (lcmd)
+		free(lcmd);
 	output("ERROR\r\n");
 }

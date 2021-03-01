@@ -32,4 +32,13 @@ int output(char c);
 int output(char *str);
 int output(String str);
 
+/* mailstation.cpp */
+void ms_setup(void);
+void ms_datadir(uint8_t which);
+int ms_read(void);
+uint16_t ms_status(void);
+int ms_write(char c);
+int ms_print(char *string);
+int ms_print(String);
+
 #endif

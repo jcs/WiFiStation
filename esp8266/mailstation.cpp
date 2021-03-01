@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include "Adafruit_MCP23017.h"
-#include "mailstation.h"
 #include "wifistation.h"
 
 /* these are pins on the MCP23017 */
@@ -44,9 +43,7 @@ ms_setup(void)
 	led_reset();
 
 	/* data lines will flip between input/output, start in output mode */
-	data_mode = OUTPUT;
-	for (int i = 0; i <= 7; i++)
-		mcp.pinMode(i, OUTPUT);
+	ms_datadir(OUTPUT);
 
 	/* strobe (control) */
 	mcp.pinMode(pStrobe, OUTPUT);
@@ -65,6 +62,15 @@ ms_setup(void)
 	mcp.pullUp(pBusy, LOW);
 }
 
+void
+ms_datadir(uint8_t which)
+{
+	for (int i = 0; i < 8; i++)
+		mcp.pinMode(pData0 + i, which);
+
+	data_mode = which;
+}
+
 int
 ms_read(void)
 {
@@ -78,12 +84,8 @@ ms_read(void)
 	if (mcp.digitalRead(pAck) == HIGH)
 		return -1;
 
-	if (data_mode != INPUT) {
-		for (int i = 0; i < 8; i++)
-			mcp.pinMode(pData0 + i, INPUT);
-
-		data_mode = INPUT;
-	}
+	if (data_mode != INPUT)
+		ms_datadir(INPUT);
 
 	mcp.digitalWrite(pLineFeed, HIGH);
 
@@ -94,7 +96,7 @@ ms_read(void)
 			error_flash();
 			return -1;
 		}
-		yield();
+		ESP.wdtFeed();
 	}
 
 	c = mcp.readGPIO(0);
@@ -110,17 +112,19 @@ ms_read(void)
 	return c2;
 }
 
+uint16_t
+ms_status(void)
+{
+	return mcp.readGPIOAB();
+}
+
 int
 ms_write(char c)
 {
 	unsigned long t;
 
-	if (data_mode != OUTPUT) {
-		for (int i = 0; i < 8; i++)
-			mcp.pinMode(pData0 + i, OUTPUT);
-
-		data_mode = OUTPUT;
-	}
+	if (data_mode != OUTPUT)
+		ms_datadir(OUTPUT);
 
 	mcp.digitalWrite(pStrobe, HIGH);
 
@@ -141,8 +145,10 @@ ms_write(char c)
 
 	t = millis();
 	while (mcp.digitalRead(pAck) == HIGH) {
-		if (millis() - t > 500)
+		if (millis() - t > 500) {
+			error_flash();
 			return -1;
+		}
 		ESP.wdtFeed();
 	}
 
