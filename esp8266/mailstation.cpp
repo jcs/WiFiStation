@@ -139,7 +139,10 @@ ms_write(char c)
 	}
 
 	/* write all data lines */
-	mcp.writeGPIO(0, c);
+	/* XXX: using mcp.writeGPIO is marginally faster, but it seems
+	 * unreliable so transfer each pin individually */
+	for (int i = 0; i < 8; i++)
+		mcp.digitalWrite(pData0 + i, (c & (1 << i)) ? HIGH : LOW);
 
 	mcp.digitalWrite(pStrobe, LOW);
 
