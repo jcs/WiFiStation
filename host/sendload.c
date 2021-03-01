@@ -76,7 +76,7 @@ main(int argc, char *argv[])
 	struct stat sb;
 	struct pollfd pfd[1];
 	unsigned int sent = 0, size = 0;
-	int len, ch, serial_fd;
+	int len, rlen, ch, serial_fd;
 	char *fn, *serial_dev = NULL;
 	int serial_speed = B115200;
 	char buf[128];
@@ -140,7 +140,15 @@ main(int argc, char *argv[])
 
 	/* it will echo, along with an OK */
 	memset(buf, 0, sizeof(buf));
-	read(serial_fd, buf, sizeof(buf));
+	rlen = 0;
+	while (poll(pfd, 1, 100) > 0) {
+		len = read(serial_fd, buf + rlen, sizeof(buf) - rlen);
+		if (sizeof(buf) - rlen <= 0)
+			break;
+
+		rlen += len;
+	}
+
 	len = 0;
 	if (sscanf(buf, "AT$UPLOAD %d\r\nOK%n", &len, &len) != 1 || len < 10) {
 		char *v;
