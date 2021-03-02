@@ -220,8 +220,8 @@ exec_cmd(char *cmd, size_t len)
 				    bytes, (bytes == 1 ? "" : "s"));
 
 			break;
-		} else if (strcmp(lcmd, "at$watch") == 0) {
-			/* AT$WATCH: watch MCP23017 lines for debugging */
+		} else if (strcmp(lcmd, "at$pins?") == 0) {
+			/* AT$PINS?: watch MCP23017 lines for debugging */
 			uint16_t prev = UINT16_MAX;
 			int i;
 
