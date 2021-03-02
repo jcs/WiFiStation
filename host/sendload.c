@@ -35,8 +35,8 @@ static int debug = 0;
 void
 usage(void)
 {
-	errx(1, "usage: %s [-d] [-p serial device] [-s serial speed] "
-	    "<file to send>", getprogname());
+	errx(1, "usage: %s [-d] [-s serial speed] <serial device> <file>",
+	    getprogname());
 }
 
 void
@@ -76,23 +76,16 @@ main(int argc, char *argv[])
 	struct stat sb;
 	struct pollfd pfd[1];
 	unsigned int sent = 0, size = 0;
-	int len, rlen, ch, serial_fd;
+	int len, rlen, ch, serial_fd = -1;
 	char *fn, *serial_dev = NULL;
 	int serial_speed = B115200;
 	char buf[128];
 	char b, be;
 
-	while ((ch = getopt(argc, argv, "dp:s:")) != -1) {
+	while ((ch = getopt(argc, argv, "ds:")) != -1) {
 		switch (ch) {
 		case 'd':
 			debug = 1;
-			break;
-		case 'p':
-			if ((serial_dev = strdup(optarg)) == NULL)
-				err(1, "strdup");
-			serial_fd = open(serial_dev, O_RDWR|O_NOCTTY|O_SYNC);
-			if (serial_fd < 0)
-				err(1, "can't open %s", optarg);
 			break;
 		case 's':
 			serial_speed = (unsigned)strtol(optarg, NULL, 0);
@@ -106,18 +99,23 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (argc != 1)
+	if (argc != 2)
 		usage();
+
+	serial_dev = argv[0];
+	serial_fd = open(serial_dev, O_RDWR|O_NOCTTY|O_SYNC);
+	if (serial_fd < 0)
+		err(1, "open %s", serial_dev);
 
 	setup_serial(serial_fd, serial_speed);
 
-	fn = argv[0];
+	fn = argv[1];
 	pFile = fopen(fn, "rb");
 	if (!pFile)
-		err(1, "open: %s", fn);
+		err(1, "open %s", fn);
 
 	if (fstat(fileno(pFile), &sb) != 0)
-		err(1, "fstat: %s", fn);
+		err(1, "fstat %s", fn);
 
 	/* we're never going to send huge files */
 	size = (unsigned int)sb.st_size;
