@@ -170,8 +170,9 @@ main(int argc, char *argv[])
 		}
 
 		sent++;
-		printf("\rsent: %06d/%06d", sent, size);
-		fflush(stdout);
+		printf("\rsent: %05d/%05d", sent, size);
+		if (sent == 1 || sent == size || sent % 10 == 0)
+			fflush(stdout);
 	}
 	fclose(pFile);
 
