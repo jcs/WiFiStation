@@ -50,17 +50,22 @@ void
 exec_cmd(char *cmd, size_t len)
 {
 	unsigned long t;
+	char *errstr = NULL;
 
 	char *lcmd = (char *)malloc(len);
-	if (lcmd == NULL)
+	if (lcmd == NULL) {
+		outputf("ERROR malloc %zu failed\r\n", len);
 		return;
+	}
 
 	for (size_t i = 0; i < len; i++)
 		lcmd[i] = tolower(cmd[i]);
 	lcmd[len] = '\0';
 
-	if (len < 2 || lcmd[0] != 'a' || lcmd[1] != 't')
+	if (len < 2 || lcmd[0] != 'a' || lcmd[1] != 't') {
+		errstr = strdup("not an AT command");
 		goto error;
+	}
 
 	if (len == 2) {
 		output("OK\r\n");
@@ -283,5 +288,11 @@ exec_cmd(char *cmd, size_t len)
 error:
 	if (lcmd)
 		free(lcmd);
-	output("ERROR\r\n");
+
+	output("ERROR");
+	if (errstr != NULL) {
+		outputf(" %s", errstr);
+		free(errstr);
+	}
+	output("\r\n");
 }
