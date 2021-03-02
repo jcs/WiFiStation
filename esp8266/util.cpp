@@ -10,15 +10,27 @@ setup(void)
 {
 	uint16_t v;
 
-	EEPROM.begin(sizeof(struct eeprom_data));
+	EEPROM.begin(EEPROM_SIZE);
 	settings = (struct eeprom_data *)EEPROM.getDataPtr();
 	if (memcmp(settings->magic, EEPROM_MAGIC_BYTES,
-	    sizeof(settings->magic)) != 0) {
+	    sizeof(settings->magic)) == 0) {
+		/* do migrations if needed based on current revision */
+		settings->revision = 1;
+	} else {
 		/* start over */
 		memset(settings, 0, sizeof(struct eeprom_data));
 		memcpy(settings->magic, EEPROM_MAGIC_BYTES,
 		    sizeof(settings->magic));
+		settings->revision = 1;
+
 		settings->baud = 115200;
+
+		settings->telnet = 1;
+		strlcpy(settings->telnet_tterm, "ansi",
+		    sizeof(settings->telnet_tterm));
+		/* msTERM defaults */
+		settings->telnet_tts_w = 64;
+		settings->telnet_tts_h = 15;
 	}
 
 	Serial.begin(settings->baud);

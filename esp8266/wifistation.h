@@ -6,12 +6,18 @@
 #include <ESP8266WiFi.h>
 #include <Wire.h>
 
+#define EEPROM_SIZE		512
 struct __attribute((__packed__)) eeprom_data {
-	char magic[4]; /* "jcs" */
-#define EEPROM_MAGIC_BYTES	"jcs\0"
+	char magic[3]; /* "jcs" */
+#define EEPROM_MAGIC_BYTES	"jcs"
+	uint8_t revision;
 	char wifi_ssid[64];
 	char wifi_pass[64];
 	uint32_t baud;
+	char telnet_tterm[32];
+	uint8_t telnet_tts_w;
+	uint8_t telnet_tts_h;
+	uint8_t telnet;
 };
 
 extern struct eeprom_data *settings;
