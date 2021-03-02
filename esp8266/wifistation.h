@@ -22,6 +22,8 @@ const int pBlueLED  =  2;
 
 /* wifistation.ino */
 void exec_cmd(char *cmd, size_t len);
+extern bool serial_alive;
+extern bool mailstation_alive;
 
 /* util.cpp */
 void led_setup(void);

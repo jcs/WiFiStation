@@ -1,67 +1,48 @@
 #include "wifistation.h"
 
-enum {
-	STATE_IDLE,
-	STATE_UPLOAD,
-};
-
-static int state = STATE_IDLE;
 static char curcmd[128] = { 0 };
 static unsigned int curcmdpos = 0;
 
 void
 loop(void)
 {
-	int c;
-	char b;
+	int b = -1;
 
-#if 0
-	if ((c = msread()) != -1)
-		Serial.write(c);
-#endif
-
-	if (!Serial.available())
+	if ((b = ms_read()) != -1)
+		mailstation_alive = true;
+	else if (Serial.available() && (b = Serial.read()))
+		serial_alive = true;
+	else
 		return;
 
-	b = Serial.read();
+	/* USR modem mode, ignore input not starting with 'at' */
+	if (curcmdpos == 0 && (b != 'A' && b != 'a')) {
+		return;
+	} else if (curcmdpos == 1 && (b != 'T' && b != 't')) {
+		outputf("\b \b");
+		curcmdpos = 0;
+		return;
+	}
 
-	switch (state) {
-	case STATE_IDLE:
-		if (b == '\r' && Serial.peek() == '\n')
-			Serial.read();
-
-		/* USR modem mode, ignore input not starting with 'at' */
-		if (curcmdpos == 0 && (b != 'A' && b != 'a')) {
-			break;
-		} else if (curcmdpos == 1 && (b != 'T' && b != 't')) {
-			outputf("\b \b");
-			curcmdpos = 0;
-			break;
-		}
-
-		switch (b) {
-		case '\r':
-		case '\n':
-			output("\r\n");
-			curcmd[curcmdpos] = '\0';
-			exec_cmd((char *)&curcmd, curcmdpos);
-			curcmd[0] = '\0';
-			curcmdpos = 0;
-			break;
-		case '\b':
-		case 127:
-			if (curcmdpos) {
-				output("\b \b");
-				curcmdpos--;
-			}
-			break;
-		default:
-			curcmd[curcmdpos++] = b;
-			output(b);
+	switch (b) {
+	case '\r':
+	case '\n':
+		output("\r\n");
+		curcmd[curcmdpos] = '\0';
+		exec_cmd((char *)&curcmd, curcmdpos);
+		curcmd[0] = '\0';
+		curcmdpos = 0;
+		break;
+	case '\b':
+	case 127:
+		if (curcmdpos) {
+			output("\b \b");
+			curcmdpos--;
 		}
 		break;
 	default:
-		outputf("unknown state %d\r\n", state);
+		curcmd[curcmdpos++] = b;
+		output(b);
 	}
 }
 

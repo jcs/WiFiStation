@@ -133,6 +133,7 @@ ms_write(char c)
 		if (millis() - t > 500) {
 			mcp.digitalWrite(pStrobe, LOW);
 			error_flash();
+			mailstation_alive = false;
 			return -1;
 		}
 		ESP.wdtFeed();

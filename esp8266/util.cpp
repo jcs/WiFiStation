@@ -2,6 +2,9 @@
 
 struct eeprom_data *settings;
 
+bool serial_alive = false;
+bool mailstation_alive = false;
+
 void
 setup(void)
 {
@@ -31,8 +34,6 @@ setup(void)
 		WiFi.disconnect();
 	else
 		WiFi.begin(settings->wifi_ssid, settings->wifi_pass);
-
-	Serial.print("OK\r\n");
 }
 
 void
@@ -96,9 +97,10 @@ outputf(const char *format, ...)
 int
 output(char c)
 {
-	Serial.print(c);
-
-	/* TODO: print to ms */
+	if (serial_alive)
+		Serial.print(c);
+	if (mailstation_alive)
+		ms_write(c);
 
 	return 0;
 }
@@ -109,13 +111,8 @@ output(char *str)
 	size_t len = strlen(str);
 	int i, ret;
 
-	for (i = 0; i < len; i++) {
+	for (i = 0; i < len; i++)
 		output(str[i]);
-#if 0
-		if ((ret = ms_write(str[i])) != 0)
-			return ret;
-#endif
-	}
 
 	return 0;
 }
