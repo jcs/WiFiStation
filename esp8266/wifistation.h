@@ -66,4 +66,10 @@ int ms_write(char c);
 int ms_print(char *string);
 int ms_print(String);
 
+/* telnet.cpp */
+int telnet_connect(char *host, uint16_t port);
+bool telnet_connected(void);
+int telnet_read(void);
+int telnet_write(char b);
+
 #endif

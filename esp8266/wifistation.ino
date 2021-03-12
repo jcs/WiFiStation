@@ -17,49 +17,78 @@
 
 #include "wifistation.h"
 
+enum {
+	STATE_AT,
+	STATE_TELNET,
+};
+
 static char curcmd[128] = { 0 };
 static unsigned int curcmdpos = 0;
+static uint8_t state = STATE_AT;
 
 void
 loop(void)
 {
 	int b = -1;
 
-	if ((b = ms_read()) != -1)
-		mailstation_alive = true;
-	else if (Serial.available() && (b = Serial.read()))
-		serial_alive = true;
-	else
-		return;
+	switch (state) {
+	case STATE_AT:
+		if ((b = ms_read()) != -1)
+			mailstation_alive = true;
+		else if (Serial.available() && (b = Serial.read()))
+			serial_alive = true;
+		else
+			return;
 
-	/* USR modem mode, ignore input not starting with 'at' */
-	if (curcmdpos == 0 && (b != 'A' && b != 'a')) {
-		return;
-	} else if (curcmdpos == 1 && (b != 'T' && b != 't')) {
-		outputf("\b \b");
-		curcmdpos = 0;
-		return;
-	}
+		/* USR modem mode, ignore input not starting with 'at' */
+		if (curcmdpos == 0 && (b != 'A' && b != 'a')) {
+			return;
+		} else if (curcmdpos == 1 && (b != 'T' && b != 't')) {
+			outputf("\b \b");
+			curcmdpos = 0;
+			return;
+		}
 
-	switch (b) {
-	case '\r':
-	case '\n':
-		output("\r\n");
-		curcmd[curcmdpos] = '\0';
-		exec_cmd((char *)&curcmd, curcmdpos);
-		curcmd[0] = '\0';
-		curcmdpos = 0;
-		break;
-	case '\b':
-	case 127:
-		if (curcmdpos) {
-			output("\b \b");
-			curcmdpos--;
+		switch (b) {
+		case '\r':
+		case '\n':
+			output("\r\n");
+			curcmd[curcmdpos] = '\0';
+			exec_cmd((char *)&curcmd, curcmdpos);
+			curcmd[0] = '\0';
+			curcmdpos = 0;
+			break;
+		case '\b':
+		case 127:
+			if (curcmdpos) {
+				output("\b \b");
+				curcmdpos--;
+			}
+			break;
+		default:
+			curcmd[curcmdpos++] = b;
+			output(b);
 		}
 		break;
-	default:
-		curcmd[curcmdpos++] = b;
-		output(b);
+	case STATE_TELNET:
+		if ((b = ms_read()) != -1) {
+			mailstation_alive = true;
+			telnet_write(b);
+		} else if (Serial.available() && (b = Serial.read())) {
+			serial_alive = true;
+			telnet_write(b);
+		} else if ((b = telnet_read()) != -1) {
+			if (mailstation_alive)
+				ms_write(b);
+			if (serial_alive)
+				Serial.write(b);
+			return;
+		} else if (!telnet_connected()) {
+			outputf("NO CARRIER\r\n");
+			state = STATE_AT;
+			break;
+		}
+		break;
 	}
 }
 
@@ -90,6 +119,55 @@ exec_cmd(char *cmd, size_t len)
 	}
 
 	switch (lcmd[2]) {
+	case 'd': {
+		char *host, *ohost;
+		uint16_t port;
+		int chars;
+
+		/* ATDT: dial a host */
+		if (len < 5 || lcmd[3] != 't')
+			goto error;
+
+		host = ohost = (char *)malloc(len);
+		if (host == NULL)
+			goto error;
+		host[0] = '\0';
+
+		if (sscanf(lcmd, "atdt%[^:]:%d%n", host, &port, &chars) == 2 &&
+		    chars > 0)
+			/* matched host:port */
+			;
+		else if (sscanf(lcmd, "atdt%[^:]%n", host, &chars) == 1 &&
+		    chars > 0)
+		    	/* host without port */
+			port = 23;
+		else {
+			errstr = strdup("invalid hostname");
+			goto error;
+		}
+
+		while (host[0] == ' ')
+			host++;
+
+		if (host[0] == '\0') {
+			errstr = strdup("blank hostname");
+			goto error;
+		}
+
+		outputf("DIALING %s:%d\r\n", host, port);
+
+		if (telnet_connect(host, port) == 0) {
+			outputf("CONNECT %d %s:%d\r\n", settings->baud, host,
+			    port);
+			state = STATE_TELNET;
+		} else {
+			outputf("NO ANSWER\r\n");
+		}
+
+		free(ohost);
+
+		break;
+	}
 	case 'i':
 		if (len > 4)
 			goto error;
