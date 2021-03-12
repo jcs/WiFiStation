@@ -59,10 +59,8 @@ icon1:
 	.equ	CONTROL_DIR_IN,		#0
 
 	.equ	CONTROL_PORT,		#0x9
-	.equ	CONTROL_STROBE_BIT,	#0
-	.equ	CONTROL_STROBE,		#(1 << CONTROL_STROBE_BIT)
-	.equ	CONTROL_LINEFEED_BIT,	#1
-	.equ	CONTROL_LINEFEED,	#(1 << CONTROL_LINEFEED_BIT)
+	.equ	CONTROL_STROBE,		#(1 << 0)
+	.equ	CONTROL_LINEFEED,	#(1 << 1)
 	.equ	CONTROL_INIT,		#(1 << 2)
 	.equ	CONTROL_SELECT,		#(1 << 3)
 
@@ -77,38 +75,40 @@ icon1:
 	.equ	STATUS_PAPEROUT,	#(1 << 5)
 
 main:
-	; lower control lines (but they are inverted so write 1s)
+	; lower control lines
 	ld	a, #CONTROL_DIR_OUT
 	out	(#CONTROL_DIR), a
-	ld	a, #0xff
+	xor	a
 	out	(#CONTROL_PORT), a
+	ld	a, #DATA_DIR_IN
+	out	(#DATA_DIR), a		; we're going to be receiving
 
 	; first read the low and high bytes of the length we're going to read
 	call	lptrecv_blocking
 	ld	l, a
 	call	lptrecv_blocking
-	ld	h, a		; hl = bytes to download
+	ld	h, a			; hl = bytes to download
 
-	ld	a, #1		; put ram page 1 into slot8000
+	ld	a, #1			; put ram page 1 into slot8000
 	out	(#0x08), a
 	out	(#0x07), a
 
-	ld	bc, #0x8000	; bc = ram addr
+	ld	bc, #0x8000		; bc = ram addr
 getbyte:
 	call	lptrecv_blocking
 	ld	(bc), a
-	inc	bc		; addr++
-	dec	hl		; bytes--
+	inc	bc			; addr++
+	dec	hl			; bytes--
 	xor	a
 	or	h
-	jr	nz, getbyte	; if h != 0, keep reading
+	jr	nz, getbyte		; if h != 0, keep reading
 	xor	a
 	or	l
-	jr	nz, getbyte	; if l != 0, keep going
-	jp	0x8000		; else, jump to new code in ram
+	jr	nz, getbyte		; if l != 0, keep going
+	jp	0x8000			; else, jump to new code in ram
 
 
-; at idle, lower all control lines (which are inverted, so write 0s)
+; at idle, lower all control lines
 ;
 ; writer:				reader:
 ; raise strobe
@@ -129,50 +129,18 @@ wait_for_busy:
 	in	a, (#STATUS_PORT)
 	and	#STATUS_BUSY		; is busy high? (strobe on writer)
 	jr	z, wait_for_busy	; no, wait until it is
-	ld	a, #DATA_DIR_IN
-	out	(#DATA_DIR), a		; we're receiving
-	ld	a, #0xff
-	res	#CONTROL_LINEFEED_BIT, a ; raise inverted linefeed (write 0)
+	ld	a, #CONTROL_LINEFEED	; raise linefeed
 	out	(#CONTROL_PORT), a
 wait_for_busy_ack:
 	in	a, (#STATUS_PORT)
-	and	#STATUS_BUSY		; is busy low?
+	and	#STATUS_BUSY		; is busy high?
 	jr	nz, wait_for_busy_ack	; no, wait
 read_data:
 	in	a, (#DATA_PORT)
 	ld	l, a
 lower_lf:
-	; if we're echoing bytes back during testing, we can skip this write
-	; since lptsend_blocking will do it for us
-	ld	a, #0xff
-	out	(#CONTROL_PORT), a	; lower inverted linefeed (write 1)
-;echo:
-;	call	lptsend_blocking	; confirmation echo byte
-	ld	a, l
+	xor	a
+	out	(#CONTROL_PORT), a	; lower linefeed
+	ld	a, l			; return read byte in a
 	pop	hl
 	ret
-
-; ; send byte in l
-; lptsend_blocking:
-; 	push	hl
-; 	ld	a, #DATA_DIR_OUT
-; 	out	(#DATA_DIR), a		; we're sending out
-; 	ld	a, #0xff
-; 	res	#CONTROL_STROBE_BIT, a
-; 	out	(#CONTROL_PORT), a	; raise inverted strobe (write 0)
-; wait_for_ack:
-; 	in	a, (#STATUS_PORT)
-; 	and	#STATUS_ACK		; is ack high?
-; 	jr	z, wait_for_ack		; no, wait
-; got_ack:
-; 	ld	a, l
-; 	out	(#DATA_PORT), a		; write data
-; 	ld	a, #0xff
-; 	out	(#CONTROL_PORT), a	; lower inverted strobe (write 1)
-; wait_for_final_ack:
-; 	in	a, (#STATUS_PORT)
-; 	and	#STATUS_ACK		; is ack high?
-; 	jr	z, wait_for_final_ack	; no, wait
-; got_final_ack:
-; 	pop	hl
-; 	ret
