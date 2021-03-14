@@ -19,8 +19,8 @@
 
 struct eeprom_data *settings;
 
-bool serial_alive = false;
-bool mailstation_alive = false;
+bool serial_alive = true;
+bool mailstation_alive = true;
 
 void
 setup(void)

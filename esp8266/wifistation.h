@@ -21,7 +21,6 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
-#include <Wire.h>
 
 #define EEPROM_SIZE		512
 struct __attribute((__packed__)) eeprom_data {
@@ -65,6 +64,7 @@ uint16_t ms_status(void);
 int ms_write(char c);
 int ms_print(char *string);
 int ms_print(String);
+void ms_writedata(char c);
 
 /* telnet.cpp */
 int telnet_connect(char *host, uint16_t port);

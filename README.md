@@ -9,10 +9,11 @@ from a remote computer over WiFi rather than a parallel LapLink (or
 cable).
 
 An
-[MCP23017](http://ww1.microchip.com/downloads/en/DeviceDoc/20001952C.pdf)
+~~[MCP23017](http://ww1.microchip.com/downloads/en/DeviceDoc/20001952C.pdf)~~
+[MCP23S18](http://ww1.microchip.com/downloads/en/devicedoc/22103a.pdf)
 is used to connect 12 GPIO lines (8 data, 2 input status, and 2 output control
 lines) to pins on the MailStation's printer port, and communicate to the
-ESP8266 via two I2C lines.
+ESP8266 via ~~two I2C~~ four SPI lines.
 
 WiFiStation implements an
 [AT command interface](https://en.wikipedia.org/wiki/Hayes_command_set)

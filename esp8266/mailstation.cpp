@@ -15,12 +15,25 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include <Arduino.h>
-#include <Wire.h>
-#include "Adafruit_MCP23017.h"
+#include "MCP23S18.h"
 #include "wifistation.h"
 
-/* these are pins on the MCP23017 */
+/*
+ * ESP8266 default SPI pins:
+ *
+ * GPIO 12: MISO
+ * GPIO 13: MOSI
+ * GPIO 14: SCK
+ *
+ * Custom pins will be:
+ * GPIO 5:  CS
+ * GPIO 16: Reset
+ */
+
+#define GPIO_CS		5
+#define GPIO_RESET	16
+
+/* these are pins on the MCP23S18 */
 const int pData0    =  0;
 const int pData1    =  1;
 const int pData2    =  2;
@@ -36,38 +49,35 @@ const int pAck      =  9; /* input from lpt pin 14 (linefeed) */
 const int pLineFeed = 10; /* output to lpt pin 10 (ack) */
 const int pStrobe   = 11; /* output to lpt pin 11 (busy) */
 
-Adafruit_MCP23017 mcp;
+MCP23S18 mcp;
 
 /* cache data pin direction */
-int data_mode;
+int data_mode = -1;
 
 void
 ms_setup(void)
 {
 	uint16_t v;
 
-	/* use 1.7mhz i2c */
-	Wire.setClock(1700000);
-	mcp.begin(&Wire);
+	/* reset the MCP23S18 */
+	pinMode(GPIO_RESET, OUTPUT);
+	digitalWrite(GPIO_RESET, LOW);
+	delay(500);
+	digitalWrite(GPIO_RESET, HIGH);
 
-	/*
-	 * check for MCP23017 returning all ones (or most likely, the i2c
-	 * library returning all 1s) and flash lights until it's fixed
-	 */
-	while ((v = mcp.readGPIOAB()) && (v == 0xffff || v == 0xffffffff))
-		error_flash();
-
-	led_reset();
+	mcp.begin(GPIO_CS);
 
 	/* data lines will flip between input/output, start in output mode */
 	ms_datadir(OUTPUT);
 
 	/* strobe (control) */
 	mcp.pinMode(pStrobe, OUTPUT);
+	mcp.pullUp(pStrobe, HIGH);
 	mcp.digitalWrite(pStrobe, LOW);
 
 	/* linefeed (control) */
 	mcp.pinMode(pLineFeed, OUTPUT);
+	mcp.pullUp(pLineFeed, HIGH);
 	mcp.digitalWrite(pLineFeed, LOW);
 
 	/* ack (status) */
@@ -77,14 +87,18 @@ ms_setup(void)
 	/* busy (status) */
 	mcp.pinMode(pBusy, INPUT);
 	mcp.pullUp(pBusy, LOW);
+
+	led_reset();
 }
 
 void
 ms_datadir(uint8_t which)
 {
-	for (int i = 0; i < 8; i++)
-		mcp.pinMode(pData0 + i, which);
+	if (data_mode == which)
+		return;
 
+	mcp.bankPinMode(0, which);
+	mcp.bankPullUp(0, which == OUTPUT ? HIGH : LOW);
 	data_mode = which;
 }
 
@@ -92,7 +106,7 @@ int
 ms_read(void)
 {
 	unsigned long t;
-	char c, c2;
+	char c;
 
 	if (mcp.digitalRead(pBusy) != HIGH)
 		return -1;
@@ -101,8 +115,7 @@ ms_read(void)
 	if (mcp.digitalRead(pAck) == HIGH)
 		return -1;
 
-	if (data_mode != INPUT)
-		ms_datadir(INPUT);
+	ms_datadir(INPUT);
 
 	mcp.digitalWrite(pLineFeed, HIGH);
 
@@ -120,13 +133,7 @@ ms_read(void)
 
 	mcp.digitalWrite(pLineFeed, LOW);
 
-	/* invert and reverse data byte */
-	c2 = 0;
-	for (int i = 0; i < 8; i++)
-		if (!(c & (1 << i)))
-			c2 |= (1 << i);
-
-	return c2;
+	return c;
 }
 
 uint16_t
@@ -140,8 +147,7 @@ ms_write(char c)
 {
 	unsigned long t;
 
-	if (data_mode != OUTPUT)
-		ms_datadir(OUTPUT);
+	ms_datadir(OUTPUT);
 
 	mcp.digitalWrite(pStrobe, HIGH);
 
@@ -156,11 +162,7 @@ ms_write(char c)
 		ESP.wdtFeed();
 	}
 
-	/* write all data lines */
-	/* XXX: using mcp.writeGPIO is marginally faster, but it seems
-	 * unreliable so transfer each pin individually */
-	for (int i = 0; i < 8; i++)
-		mcp.digitalWrite(pData0 + i, (c & (1 << i)) ? HIGH : LOW);
+	ms_writedata(c);
 
 	mcp.digitalWrite(pStrobe, LOW);
 
@@ -170,6 +172,33 @@ ms_write(char c)
 			error_flash();
 			return -1;
 		}
+		ESP.wdtFeed();
+	}
+
+	return 0;
+}
+
+int
+ms_write_blocking(char c)
+{
+	unsigned long t;
+
+	ms_datadir(OUTPUT);
+
+	mcp.digitalWrite(pStrobe, HIGH);
+
+	t = millis();
+	while (mcp.digitalRead(pAck) == LOW)
+		ESP.wdtFeed();
+
+	ms_writedata(c);
+
+	mcp.digitalWrite(pStrobe, LOW);
+
+	t = millis();
+	while (mcp.digitalRead(pAck) == HIGH) {
+		if (mcp.digitalRead(pStrobe) == HIGH)
+			break;
 		ESP.wdtFeed();
 	}
 
@@ -201,4 +230,10 @@ ms_print(char *string)
 			return ret;
 
 	return 0;
+}
+
+void
+ms_writedata(char c)
+{
+	mcp.writeGPIO(0, c);
 }

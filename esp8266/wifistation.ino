@@ -368,16 +368,56 @@ exec_cmd(char *cmd, size_t len)
 		} else if (strcmp(lcmd, "at$pins?") == 0) {
 			/* AT$PINS?: watch MCP23017 lines for debugging */
 			uint16_t prev = UINT16_MAX;
-			int i;
+			int i, done = 0;
+			unsigned char b, bit, n, data = 0;
 
 			ms_datadir(INPUT);
 
-			for (;;) {
-				yield();
+			while (!done) {
+				ESP.wdtFeed();
 
 				/* watch for ^C */
-				if (Serial.available() && Serial.read() == 3)
-					break;
+				if (Serial.available()) {
+					switch (b = Serial.read()) {
+					case 3:
+						/* ^C */
+						done = 1;
+					case 'd':
+						Serial.printf("data input\r\n");
+						ms_datadir(INPUT);
+						break;
+					case 'D':
+						Serial.printf("data output\r\n");
+						ms_datadir(OUTPUT);
+						break;
+					case 'z':
+						Serial.printf("writing z\r\n");
+						ms_datadir(OUTPUT);
+						ms_write('z');
+						break;
+					case '0':
+					case '1':
+					case '2':
+					case '3':
+					case '4':
+					case '5':
+					case '6':
+					case '7':
+						n = (b - '0');
+						bit = (data & (1 << n));
+						if (bit)
+							data &= ~(1 << n);
+						else
+							data |= (1 << n);
+						Serial.printf("turning data%d "
+						    "%s (0x%x)\r\n",
+						    n, bit ? "off" : " on",
+						    data);
+						ms_datadir(OUTPUT);
+						ms_writedata(data);
+						break;
+					}
+				}
 
 				uint16_t all = ms_status();
 				if (all != prev) {
@@ -394,6 +434,7 @@ exec_cmd(char *cmd, size_t len)
 					prev = all;
 				}
 			}
+			ms_datadir(INPUT);
 			Serial.print("OK\r\n");
 		} else
 			goto error;
