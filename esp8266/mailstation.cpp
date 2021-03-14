@@ -126,8 +126,8 @@ ms_read(void)
 			error_flash();
 			return -1;
 		}
-		ESP.wdtFeed();
 	}
+	ESP.wdtFeed();
 
 	c = mcp.readGPIO(0);
 
@@ -159,8 +159,8 @@ ms_write(char c)
 			mailstation_alive = false;
 			return -1;
 		}
-		ESP.wdtFeed();
 	}
+	ESP.wdtFeed();
 
 	ms_writedata(c);
 
@@ -172,35 +172,8 @@ ms_write(char c)
 			error_flash();
 			return -1;
 		}
-		ESP.wdtFeed();
 	}
-
-	return 0;
-}
-
-int
-ms_write_blocking(char c)
-{
-	unsigned long t;
-
-	ms_datadir(OUTPUT);
-
-	mcp.digitalWrite(pStrobe, HIGH);
-
-	t = millis();
-	while (mcp.digitalRead(pAck) == LOW)
-		ESP.wdtFeed();
-
-	ms_writedata(c);
-
-	mcp.digitalWrite(pStrobe, LOW);
-
-	t = millis();
-	while (mcp.digitalRead(pAck) == HIGH) {
-		if (mcp.digitalRead(pStrobe) == HIGH)
-			break;
-		ESP.wdtFeed();
-	}
+	ESP.wdtFeed();
 
 	return 0;
 }

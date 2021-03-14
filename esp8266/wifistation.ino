@@ -341,6 +341,8 @@ exec_cmd(char *cmd, size_t len)
 			    bytes == 1 ? "" : "s");
 
 			t = millis();
+			int written = 0;
+			char cksum = 0;
 			while (bytes > 0) {
 				if (!Serial.available()) {
 					if (millis() - t > 5000)
@@ -350,20 +352,27 @@ exec_cmd(char *cmd, size_t len)
 				}
 
 				b = Serial.read();
+
 				if (ms_write(b) != 0)
 					break;
-				Serial.write(b);
+
+				cksum ^= b;
+
+				if (++written % 32 == 0)
+					Serial.write(cksum);
+
 				bytes--;
 				t = millis();
 			}
 
-			if (bytes == 0)
+			if (bytes == 0) {
+				Serial.write(cksum);
 				Serial.print("\r\nOK\r\n");
+			}
 			else
 				Serial.printf("\r\nERROR MailStation failed to "
 				    "receive byte with %d byte%s left\r\n",
 				    bytes, (bytes == 1 ? "" : "s"));
-
 			break;
 		} else if (strcmp(lcmd, "at$pins?") == 0) {
 			/* AT$PINS?: watch MCP23017 lines for debugging */

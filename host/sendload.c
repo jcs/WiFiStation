@@ -80,7 +80,8 @@ main(int argc, char *argv[])
 	char *fn, *serial_dev = NULL;
 	int serial_speed = B115200;
 	char buf[128];
-	char b, be;
+	char b;
+	char cksum = 0, rcksum;
 
 	while ((ch = getopt(argc, argv, "ds:")) != -1) {
 		switch (ch) {
@@ -163,16 +164,23 @@ main(int argc, char *argv[])
 	while (sent < size) {
 		b = fgetc(pFile);
 		write(serial_fd, &b, 1);
-		if (read(serial_fd, &be, 1) != 1 || be != b) {
-			printf("\n");
-			errx(1, "failed echo of byte %d/%d (sent 0x%x, "
-			    "received 0x%x)", sent, size, b, be);
+		cksum ^= b;
+		sent++;
+
+		if (sent % 32 == 0) {
+			if (read(serial_fd, &rcksum, 1) != 1 ||
+			    rcksum != cksum) {
+				printf("\n");
+				errx(1, "failed checksum of byte %d/%d "
+				    "(expected 0x%x, received 0x%x)",
+				    sent, size, cksum, rcksum);
+			}
 		}
 
-		sent++;
-		printf("\rsent: %05d/%05d", sent, size);
-		if (sent == 1 || sent == size || sent % 10 == 0)
+		if (sent == 1 || sent == size || sent % 32 == 0) {
+			printf("\rsent: %05d/%05d", sent, size);
 			fflush(stdout);
+		}
 	}
 	fclose(pFile);
 

@@ -161,8 +161,8 @@ MCP23S18::writeRegister(uint8_t reg, uint8_t b)
 void
 MCP23S18::beginSend(uint8_t mode)
 {
-	/* 10Mhz */
-	SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
+	/* 5Mhz */
+	SPI.beginTransaction(SPISettings(5000000, MSBFIRST, SPI_MODE0));
 	::digitalWrite(cs_pin, LOW);
 
 	/* 7-bit address is 0x20, shift in the read/write bit */
