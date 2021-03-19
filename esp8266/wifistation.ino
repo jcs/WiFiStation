@@ -98,7 +98,7 @@ exec_cmd(char *cmd, size_t len)
 	unsigned long t;
 	char *errstr = NULL;
 
-	char *lcmd = (char *)malloc(len);
+	char *lcmd = (char *)malloc(len + 1);
 	if (lcmd == NULL) {
 		outputf("ERROR malloc %zu failed\r\n", len);
 		return;
