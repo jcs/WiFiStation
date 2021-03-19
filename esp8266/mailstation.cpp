@@ -108,7 +108,8 @@ ms_read(void)
 	unsigned long t;
 	char c;
 
-	if (mcp.digitalRead(pBusy) != HIGH)
+	/* sender raises strobe (busy) to signal a write */
+	if (mcp.digitalRead(pBusy) == LOW)
 		return -1;
 
 	/* but when both lines are high, something's not right */
@@ -117,8 +118,12 @@ ms_read(void)
 
 	ms_datadir(INPUT);
 
+	/* raise linefeed (ack) to signal ready to receive */
 	mcp.digitalWrite(pLineFeed, HIGH);
 
+	/* sender sees raised ack and writes data */
+
+	/* sender lowers strobe (busy) once data is ready */
 	t = millis();
 	while (mcp.digitalRead(pBusy) == HIGH) {
 		if (millis() - t > 500) {
@@ -131,6 +136,7 @@ ms_read(void)
 
 	c = mcp.readGPIO(0);
 
+	/* lower linefeed (ack) when we're done reading */
 	mcp.digitalWrite(pLineFeed, LOW);
 
 	return c;
@@ -149,8 +155,10 @@ ms_write(char c)
 
 	ms_datadir(OUTPUT);
 
+	/* raise strobe (busy on receiver) to signal write */
 	mcp.digitalWrite(pStrobe, HIGH);
 
+	/* wait for receiver to raise ack (linefeed on receiver) */
 	t = millis();
 	while (mcp.digitalRead(pAck) == LOW) {
 		if (millis() - t > 500) {
@@ -162,10 +170,13 @@ ms_write(char c)
 	}
 	ESP.wdtFeed();
 
+	/* ack is high, write data */
 	ms_writedata(c);
 
+	/* lower strobe (busy on receiver) to indicate we're done writing */
 	mcp.digitalWrite(pStrobe, LOW);
 
+	/* wait for receiver to read and lower ack (busy on their end) */
 	t = millis();
 	while (mcp.digitalRead(pAck) == HIGH) {
 		if (millis() - t > 500) {
