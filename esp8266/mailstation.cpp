@@ -18,6 +18,9 @@
 #include "MCP23S18.h"
 #include "wifistation.h"
 
+/* millis to consider a read/write timed out */
+#define MAILSTATION_TIMEOUT 2500
+
 /*
  * ESP8266 default SPI pins:
  *
@@ -126,13 +129,13 @@ ms_read(void)
 	/* sender lowers strobe (busy) once data is ready */
 	t = millis();
 	while (mcp.digitalRead(pBusy) == HIGH) {
-		if (millis() - t > 500) {
+		if (millis() - t > MAILSTATION_TIMEOUT) {
 			mcp.digitalWrite(pLineFeed, LOW);
 			error_flash();
 			return -1;
 		}
+		ESP.wdtFeed();
 	}
-	ESP.wdtFeed();
 
 	c = mcp.readGPIO(0);
 
@@ -161,14 +164,14 @@ ms_write(char c)
 	/* wait for receiver to raise ack (linefeed on receiver) */
 	t = millis();
 	while (mcp.digitalRead(pAck) == LOW) {
-		if (millis() - t > 500) {
+		if (millis() - t > MAILSTATION_TIMEOUT) {
 			mcp.digitalWrite(pStrobe, LOW);
 			error_flash();
 			mailstation_alive = false;
 			return -1;
 		}
+		ESP.wdtFeed();
 	}
-	ESP.wdtFeed();
 
 	/* ack is high, write data */
 	ms_writedata(c);
@@ -179,12 +182,12 @@ ms_write(char c)
 	/* wait for receiver to read and lower ack (busy on their end) */
 	t = millis();
 	while (mcp.digitalRead(pAck) == HIGH) {
-		if (millis() - t > 500) {
+		if (millis() - t > MAILSTATION_TIMEOUT) {
 			error_flash();
 			return -1;
 		}
+		ESP.wdtFeed();
 	}
-	ESP.wdtFeed();
 
 	return 0;
 }

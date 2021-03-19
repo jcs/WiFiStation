@@ -33,9 +33,14 @@ loop(void)
 
 	switch (state) {
 	case STATE_AT:
-		if ((b = ms_read()) != -1)
-			mailstation_alive = true;
-		else if (Serial.available() && (b = Serial.read()))
+		if ((b = ms_read()) != -1) {
+			if (!mailstation_alive) {
+				/* mailstation can only come alive sending 'a' */
+				if (b != 'A' && b != 'a')
+					return;
+				mailstation_alive = true;
+			}
+		} else if (Serial.available() && (b = Serial.read()))
 			serial_alive = true;
 		else
 			return;
@@ -71,7 +76,7 @@ loop(void)
 		}
 		break;
 	case STATE_TELNET:
-		if ((b = ms_read()) != -1) {
+		if (mailstation_alive && (b = ms_read()) != -1) {
 			mailstation_alive = true;
 			telnet_write(b);
 		} else if (Serial.available() && (b = Serial.read())) {
@@ -84,7 +89,7 @@ loop(void)
 				Serial.write(b);
 			return;
 		} else if (!telnet_connected()) {
-			outputf("NO CARRIER\r\n");
+			outputf("\r\nNO CARRIER\r\n");
 			state = STATE_AT;
 			break;
 		}
@@ -398,11 +403,6 @@ exec_cmd(char *cmd, size_t len)
 					case 'D':
 						Serial.printf("data output\r\n");
 						ms_datadir(OUTPUT);
-						break;
-					case 'z':
-						Serial.printf("writing z\r\n");
-						ms_datadir(OUTPUT);
-						ms_write('z');
 						break;
 					case '0':
 					case '1':

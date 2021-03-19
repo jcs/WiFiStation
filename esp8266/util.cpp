@@ -20,7 +20,7 @@
 struct eeprom_data *settings;
 
 bool serial_alive = true;
-bool mailstation_alive = true;
+bool mailstation_alive = false;
 
 void
 setup(void)
