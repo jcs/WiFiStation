@@ -9,6 +9,20 @@
 <grid distance="0.1" unitdist="inch" unit="inch" style="lines" multiple="1" display="no" altdistance="0.01" altunitdist="inch" altunit="inch"/>
 <layers>
 <layer number="1" name="Top" color="4" fill="1" visible="no" active="no"/>
+<layer number="2" name="Route2" color="1" fill="3" visible="no" active="no"/>
+<layer number="3" name="Route3" color="4" fill="3" visible="no" active="no"/>
+<layer number="4" name="Route4" color="1" fill="4" visible="no" active="no"/>
+<layer number="5" name="Route5" color="4" fill="4" visible="no" active="no"/>
+<layer number="6" name="Route6" color="1" fill="8" visible="no" active="no"/>
+<layer number="7" name="Route7" color="4" fill="8" visible="no" active="no"/>
+<layer number="8" name="Route8" color="1" fill="2" visible="no" active="no"/>
+<layer number="9" name="Route9" color="4" fill="2" visible="no" active="no"/>
+<layer number="10" name="Route10" color="1" fill="7" visible="no" active="no"/>
+<layer number="11" name="Route11" color="4" fill="7" visible="no" active="no"/>
+<layer number="12" name="Route12" color="1" fill="5" visible="no" active="no"/>
+<layer number="13" name="Route13" color="4" fill="5" visible="no" active="no"/>
+<layer number="14" name="Route14" color="1" fill="6" visible="no" active="no"/>
+<layer number="15" name="Route15" color="4" fill="6" visible="no" active="no"/>
 <layer number="16" name="Bottom" color="1" fill="1" visible="no" active="no"/>
 <layer number="17" name="Pads" color="2" fill="1" visible="no" active="no"/>
 <layer number="18" name="Vias" color="2" fill="1" visible="no" active="no"/>
@@ -1063,8 +1077,8 @@ See also HELP HOLE,</description>
 <part name="1" library="SP" deviceset="MICROCHIP_MCP23S18-E-SP" device="MICROCHIP_MCP23S18-E-SP_0_0"/>
 <part name="RN1" library="resistor-net" library_urn="urn:adsk.eagle:library:343" deviceset="RN10" device="" package3d_urn="urn:adsk.eagle:package:24979/1"/>
 <part name="FEATHER" library="jcs" deviceset="FEATHERWING" device="_NODIM_NOHOLES" package3d_urn="urn:adsk.eagle:package:6240960/1"/>
-<part name="H1" library="special-drill" library_urn="urn:adsk.eagle:library:366" deviceset="SPECIAL_DRILL_" device="0.1560" package3d_urn="urn:adsk.eagle:package:26543/1"/>
-<part name="H2" library="special-drill" library_urn="urn:adsk.eagle:library:366" deviceset="SPECIAL_DRILL_" device="0.1560" package3d_urn="urn:adsk.eagle:package:26543/1"/>
+<part name="H1" library="special-drill" library_urn="urn:adsk.eagle:library:366" deviceset="SPECIAL_DRILL_" device="0.1250" package3d_urn="urn:adsk.eagle:package:26538/1" value="SPECIAL_DRILL_0.1250"/>
+<part name="H2" library="special-drill" library_urn="urn:adsk.eagle:library:366" deviceset="SPECIAL_DRILL_" device="0.1250" package3d_urn="urn:adsk.eagle:package:26538/1" value="SPECIAL_DRILL_0.1250"/>
 </parts>
 <sheets>
 <sheet>
@@ -1082,13 +1096,13 @@ See also HELP HOLE,</description>
 <attribute name="VALUE" x="143.256" y="96.52" size="1.778" layer="96" rot="R270"/>
 </instance>
 <instance part="FEATHER" gate="G$1" x="5.08" y="35.56" smashed="yes"/>
-<instance part="H1" gate="G$1" x="7.62" y="88.9" smashed="yes">
-<attribute name="NAME" x="7.62" y="90.17" size="1.778" layer="95"/>
-<attribute name="VALUE" x="7.62" y="86.106" size="1.778" layer="96"/>
+<instance part="H1" gate="G$1" x="10.16" y="91.44" smashed="yes">
+<attribute name="NAME" x="10.16" y="92.71" size="1.778" layer="95"/>
+<attribute name="VALUE" x="10.16" y="88.646" size="1.778" layer="96"/>
 </instance>
-<instance part="H2" gate="G$1" x="7.62" y="81.28" smashed="yes">
-<attribute name="NAME" x="7.62" y="82.55" size="1.778" layer="95"/>
-<attribute name="VALUE" x="7.62" y="78.486" size="1.778" layer="96"/>
+<instance part="H2" gate="G$1" x="10.16" y="83.82" smashed="yes">
+<attribute name="NAME" x="10.16" y="85.09" size="1.778" layer="95"/>
+<attribute name="VALUE" x="10.16" y="81.026" size="1.778" layer="96"/>
 </instance>
 </instances>
 <busses>
@@ -1102,6 +1116,13 @@ See also HELP HOLE,</description>
 <wire x1="58.42" y1="20.32" x2="17.78" y2="20.32" width="0.1524" layer="91"/>
 <wire x1="17.78" y1="20.32" x2="17.78" y2="30.48" width="0.1524" layer="91"/>
 <pinref part="FEATHER" gate="G$1" pin="GND"/>
+<wire x1="58.42" y1="81.28" x2="58.42" y2="111.76" width="0.1524" layer="91"/>
+<junction x="58.42" y="81.28"/>
+<wire x1="58.42" y1="111.76" x2="185.42" y2="111.76" width="0.1524" layer="91"/>
+<wire x1="185.42" y1="111.76" x2="185.42" y2="86.36" width="0.1524" layer="91"/>
+<wire x1="58.42" y1="20.32" x2="185.42" y2="20.32" width="0.1524" layer="91"/>
+<junction x="58.42" y="20.32"/>
+<wire x1="185.42" y1="20.32" x2="185.42" y2="50.8" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$3" class="0">
