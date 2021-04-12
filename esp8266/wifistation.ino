@@ -16,6 +16,7 @@
  */
 
 #include "wifistation.h"
+#include "MCP23S18.h"
 
 enum {
 	STATE_AT,
@@ -330,8 +331,9 @@ exec_cmd(char *cmd, size_t len)
 				goto error;
 
 			/*
-			 * Only use Serial writing from here on out, output()
-			 * and outputf() will try to write to the MailStation.
+			 * Only use Serial writing from here on out since
+			 * output() and outputf() will try to write to the
+			 * MailStation and corrupt our upload.
 			 */
 
 			/* send low and high bytes of size */
@@ -373,17 +375,17 @@ exec_cmd(char *cmd, size_t len)
 			if (bytes == 0) {
 				Serial.write(cksum);
 				Serial.print("\r\nOK\r\n");
-			}
-			else
+			} else
 				Serial.printf("\r\nERROR MailStation failed to "
 				    "receive byte with %d byte%s left\r\n",
 				    bytes, (bytes == 1 ? "" : "s"));
 			break;
 		} else if (strcmp(lcmd, "at$pins?") == 0) {
-			/* AT$PINS?: watch MCP23017 lines for debugging */
+			/* AT$PINS?: watch MCP23S18 lines for debugging */
 			uint16_t prev = UINT16_MAX;
 			int i, done = 0;
 			unsigned char b, bit, n, data = 0;
+			extern MCP23S18 mcp;
 
 			ms_datadir(INPUT);
 
@@ -403,6 +405,22 @@ exec_cmd(char *cmd, size_t len)
 					case 'D':
 						Serial.printf("data output\r\n");
 						ms_datadir(OUTPUT);
+						break;
+					case 'L':
+						Serial.printf("linefeed high\r\n");
+						mcp.digitalWrite(pLineFeed, HIGH);
+						break;
+					case 'l':
+						Serial.printf("linefeed low\r\n");
+						mcp.digitalWrite(pLineFeed, LOW);
+						break;
+					case 'S':
+						Serial.printf("strobe high\r\n");
+						mcp.digitalWrite(pStrobe, HIGH);
+						break;
+					case 's':
+						Serial.printf("strobe low\r\n");
+						mcp.digitalWrite(pStrobe, LOW);
 						break;
 					case '0':
 					case '1':
@@ -430,12 +448,12 @@ exec_cmd(char *cmd, size_t len)
 
 				uint16_t all = ms_status();
 				if (all != prev) {
-					Serial.print("DATA: ");
+					Serial.print("data: ");
 					for (i = 0; i < 8; i++)
 						Serial.print((all & (1 << i)) ?
 						    '1' : '0');
 
-					Serial.print(" STATUS: ");
+					Serial.print(" status: ");
 					for (; i < 16; i++)
 						Serial.print((all & (1 << i)) ?
 						    '1' : '0');
