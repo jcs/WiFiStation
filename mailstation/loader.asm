@@ -37,7 +37,7 @@ caption:
 	.dw	#0x0001
 	.dw	(endcap - caption - 6)
 	.dw	#0x0006
-	.ascii	"WLoader"		; the icon caption
+	.ascii	"WSLoader"		; the icon caption
 endcap:
 
 icons:
