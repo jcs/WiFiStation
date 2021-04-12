@@ -202,7 +202,7 @@ main(int argc, char *argv[])
 		cksum ^= b;
 		sent++;
 
-		if (sent % 32 == 0) {
+		if (sent % 32 == 0 || sent == size) {
 			if (poll(pfd, 1, 100) < 1 ||
 			    read(serial_fd, &rcksum, 1) != 1 || rcksum != cksum) {
 				printf("\n");
