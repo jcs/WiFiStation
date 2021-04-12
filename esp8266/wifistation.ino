@@ -259,7 +259,7 @@ exec_cmd(char *cmd, size_t len)
 		break;
 	case 'z':
 		output("OK\r\n");
-		ESP.reset();
+		ESP.restart();
 		break;
 	case '$':
 		/* wifi232 commands */
