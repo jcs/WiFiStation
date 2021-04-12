@@ -29,11 +29,11 @@
  * GPIO 14: SCK
  *
  * Custom pins will be:
- * GPIO 5:  CS
+ * GPIO 4:  CS
  * GPIO 16: Reset
  */
 
-#define GPIO_CS		5
+#define GPIO_CS		4
 #define GPIO_RESET	16
 
 /* these are pins on the MCP23S18 */
@@ -46,11 +46,11 @@ const int pData5    =  5;
 const int pData6    =  6;
 const int pData7    =  7;
 
-const int pBusy     =  8; /* input from lpt pin 1 (strobe) */
-const int pAck      =  9; /* input from lpt pin 14 (linefeed) */
+const int pBusy     =  8; /* input from mailstation pin 1 (strobe) */
+const int pAck      =  9; /* input from mailstation pin 14 (linefeed) */
 
-const int pLineFeed = 10; /* output to lpt pin 10 (ack) */
-const int pStrobe   = 11; /* output to lpt pin 11 (busy) */
+const int pLineFeed = 10; /* output to mailstation pin 10 (ack) */
+const int pStrobe   = 11; /* output to mailstation pin 11 (busy) */
 
 MCP23S18 mcp;
 
@@ -58,15 +58,16 @@ MCP23S18 mcp;
 int data_mode = -1;
 
 void
-ms_setup(void)
+ms_init(void)
 {
 	uint16_t v;
 
 	/* reset the MCP23S18 */
 	pinMode(GPIO_RESET, OUTPUT);
 	digitalWrite(GPIO_RESET, LOW);
-	delay(500);
+	delay(100);
 	digitalWrite(GPIO_RESET, HIGH);
+	delay(100);
 
 	mcp.begin(GPIO_CS);
 
@@ -90,8 +91,23 @@ ms_setup(void)
 	/* busy (status) */
 	mcp.pinMode(pBusy, INPUT);
 	mcp.pullUp(pBusy, LOW);
+}
 
-	led_reset();
+void
+ms_setup(void)
+{
+	uint8_t iocon;
+
+	for (;;) {
+		ms_init();
+		iocon = mcp.readRegister(MCP23S18_IOCON);
+
+		if (iocon == 0xff || iocon == 0x0) {
+			error_flash();
+			ms_init();
+		} else
+			break;
+	}
 }
 
 void
@@ -163,7 +179,8 @@ ms_write(char c)
 
 	/* wait for receiver to raise ack (linefeed on receiver) */
 	t = millis();
-	while (mcp.digitalRead(pAck) == LOW) {
+	while (mcp.digitalRead(pAck) == LOW &&
+	    mcp.digitalRead(pLineFeed) == LOW) {
 		if (millis() - t > MAILSTATION_TIMEOUT) {
 			mcp.digitalWrite(pStrobe, LOW);
 			error_flash();

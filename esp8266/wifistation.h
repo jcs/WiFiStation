@@ -57,6 +57,18 @@ int output(char *str);
 int output(String str);
 
 /* mailstation.cpp */
+extern const int pData0;
+extern const int pData1;
+extern const int pData2;
+extern const int pData3;
+extern const int pData4;
+extern const int pData5;
+extern const int pData6;
+extern const int pData7;
+extern const int pBusy;
+extern const int pAck;
+extern const int pLineFeed;
+extern const int pStrobe;
 void ms_setup(void);
 void ms_datadir(uint8_t which);
 int ms_read(void);

@@ -55,6 +55,7 @@ setup(void)
 
 	led_setup();
 	ms_setup();
+	led_reset();
 
 	WiFi.mode(WIFI_STA);
 
