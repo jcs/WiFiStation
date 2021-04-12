@@ -264,24 +264,17 @@ exec_cmd(char *cmd, size_t len)
 	case '$':
 		/* wifi232 commands */
 
-		if (strcmp(lcmd, "at$ssid?") == 0) {
-			/* AT$SSID?: print wifi ssid */
-			outputf("%s\r\nOK\r\n", settings->wifi_ssid);
-		} else if (strncmp(lcmd, "at$ssid=", 8) == 0) {
-			/* AT$SSID=...: set wifi ssid */
-			memset(settings->wifi_ssid, 0,
-			    sizeof(settings->wifi_ssid));
-			strncpy(settings->wifi_ssid, cmd + 8,
-			    sizeof(settings->wifi_ssid));
+		if (strcmp(lcmd, "at$net=0") == 0) {
+			/* AT$NET=0: disable telnet setting */
+			settings->telnet = 0;
 			output("OK\r\n");
-
-			WiFi.disconnect();
-			if (settings->wifi_ssid[0])
-				WiFi.begin(settings->wifi_ssid,
-				    settings->wifi_pass);
-		} else if (strcmp(lcmd, "at$pass?") == 0) {
-			/* AT$PASS?: print wep/wpa passphrase */
-			outputf("%s\r\nOK\r\n", settings->wifi_pass);
+		} else if (strcmp(lcmd, "at$net=1") == 0) {
+			/* AT$NET=1: enable telnet setting */
+			settings->telnet = 1;
+			output("OK\r\n");
+		} else if (strcmp(lcmd, "at$net?") == 0) {
+			/* AT$NET?: show telnet setting */
+			outputf("%d\r\nOK\r\n", settings->telnet);
 		} else if (strncmp(lcmd, "at$pass=", 8) == 0) {
 			/* AT$PASS=...: store wep/wpa passphrase */
 			memset(settings->wifi_pass, 0,
@@ -294,110 +287,9 @@ exec_cmd(char *cmd, size_t len)
 			if (settings->wifi_ssid[0])
 				WiFi.begin(settings->wifi_ssid,
 				    settings->wifi_pass);
-		} else if (strcmp(lcmd, "at$net?") == 0) {
-			/* AT$NET?: show telnet setting */
-			outputf("%d\r\nOK\r\n", settings->telnet);
-		} else if (strcmp(lcmd, "at$net=1") == 0) {
-			/* AT$NET=1: enable telnet setting */
-			settings->telnet = 1;
-			output("OK\r\n");
-		} else if (strcmp(lcmd, "at$net=0") == 0) {
-			/* AT$NET=0: disable telnet setting */
-			settings->telnet = 0;
-			output("OK\r\n");
-		} else if (strcmp(lcmd, "at$tty?") == 0) {
-			/* AT$TTY?: show telnet TTYPE setting */
-			outputf("%s\r\nOK\r\n", settings->telnet_tterm);
-		} else if (strncmp(lcmd, "at$tty=", 7) == 0) {
-			/* AT$TTY=: set telnet TTYPE */
-			memset(settings->telnet_tterm, 0,
-			    sizeof(settings->telnet_tterm));
-			strncpy(settings->telnet_tterm, cmd + 7,
-			    sizeof(settings->telnet_tterm));
-			output("OK\r\n");
-		} else if (strcmp(lcmd, "at$tts?") == 0) {
-			/* AT$TTS?: show telnet NAWS setting */
-			outputf("%dx%d\r\nOK\r\n", settings->telnet_tts_w,
-			    settings->telnet_tts_h);
-		} else if (strncmp(lcmd, "at$tts=", 7) == 0) {
-			int w, h, chars;
-			if (sscanf(lcmd + 7, "%dx%d%n", &w, &h, &chars) == 2 &&
-			    chars > 0) {
-				if (w < 1 || w > 255) {
-					errstr = strdup("invalid width");
-					goto error;
-				}
-				if (h < 1 || h > 255) {
-					errstr = strdup("invalid height");
-					goto error;
-				}
-
-				settings->telnet_tts_w = w;
-				settings->telnet_tts_h = h;
-				output("OK\r\n");
-			} else {
-				errstr = strdup("must be WxH");
-				goto error;
-			}
-		} else if (strncmp(lcmd, "at$upload", 9) == 0) {
-			/* AT$UPLOAD: mailstation program loader */
-			int bytes = 0;
-			unsigned char b;
-
-			if (sscanf(lcmd, "at$upload%u", &bytes) != 1 ||
-			    bytes < 1)
-				goto error;
-
-			/*
-			 * Assume it's now dead until we see it on the other
-			 * side of the upload
-			 */
-			mailstation_alive = false;
-
-			/* send low and high bytes of size */
-			if (ms_write(bytes & 0xff) != 0 ||
-			    ms_write((bytes >> 8) & 0xff) != 0) {
-				output("ERROR MailStation failed to receive "
-				    "size\r\n");
-				break;
-			}
-
-			outputf("OK send your %d byte%s\r\n", bytes,
-			    bytes == 1 ? "" : "s");
-
-			t = millis();
-			int written = 0;
-			char cksum = 0;
-			while (bytes > 0) {
-				if (!Serial.available()) {
-					if (millis() - t > 5000)
-						break;
-					yield();
-					continue;
-				}
-
-				b = Serial.read();
-
-				if (ms_write(b) != 0)
-					break;
-
-				cksum ^= b;
-
-				if (++written % 32 == 0)
-					output(cksum);
-
-				bytes--;
-				t = millis();
-			}
-
-			if (bytes == 0) {
-				output(cksum);
-				output("\r\nOK good luck\r\n");
-			} else
-				outputf("\r\nERROR MailStation failed to "
-				    "receive byte with %d byte%s left\r\n",
-				    bytes, (bytes == 1 ? "" : "s"));
-			break;
+		} else if (strcmp(lcmd, "at$pass?") == 0) {
+			/* AT$PASS?: print wep/wpa passphrase */
+			outputf("%s\r\nOK\r\n", settings->wifi_pass);
 		} else if (strcmp(lcmd, "at$pins?") == 0) {
 			/* AT$PINS?: watch MCP23S18 lines for debugging */
 			uint16_t prev = UINT16_MAX;
@@ -481,6 +373,115 @@ exec_cmd(char *cmd, size_t len)
 			}
 			ms_datadir(INPUT);
 			Serial.print("OK\r\n");
+		} else if (strncmp(lcmd, "at$ssid=", 8) == 0) {
+			/* AT$SSID=...: set wifi ssid */
+			memset(settings->wifi_ssid, 0,
+			    sizeof(settings->wifi_ssid));
+			strncpy(settings->wifi_ssid, cmd + 8,
+			    sizeof(settings->wifi_ssid));
+			output("OK\r\n");
+
+			WiFi.disconnect();
+			if (settings->wifi_ssid[0])
+				WiFi.begin(settings->wifi_ssid,
+				    settings->wifi_pass);
+		} else if (strcmp(lcmd, "at$ssid?") == 0) {
+			/* AT$SSID?: print wifi ssid */
+			outputf("%s\r\nOK\r\n", settings->wifi_ssid);
+		} else if (strncmp(lcmd, "at$tts=", 7) == 0) {
+			/* AT$TTS=: set telnet NAWS */
+			int w, h, chars;
+			if (sscanf(lcmd + 7, "%dx%d%n", &w, &h, &chars) == 2 &&
+			    chars > 0) {
+				if (w < 1 || w > 255) {
+					errstr = strdup("invalid width");
+					goto error;
+				}
+				if (h < 1 || h > 255) {
+					errstr = strdup("invalid height");
+					goto error;
+				}
+
+				settings->telnet_tts_w = w;
+				settings->telnet_tts_h = h;
+				output("OK\r\n");
+			} else {
+				errstr = strdup("must be WxH");
+				goto error;
+			}
+		} else if (strcmp(lcmd, "at$tts?") == 0) {
+			/* AT$TTS?: show telnet NAWS setting */
+			outputf("%dx%d\r\nOK\r\n", settings->telnet_tts_w,
+			    settings->telnet_tts_h);
+		} else if (strncmp(lcmd, "at$tty=", 7) == 0) {
+			/* AT$TTY=: set telnet TTYPE */
+			memset(settings->telnet_tterm, 0,
+			    sizeof(settings->telnet_tterm));
+			strncpy(settings->telnet_tterm, cmd + 7,
+			    sizeof(settings->telnet_tterm));
+			output("OK\r\n");
+		} else if (strcmp(lcmd, "at$tty?") == 0) {
+			/* AT$TTY?: show telnet TTYPE setting */
+			outputf("%s\r\nOK\r\n", settings->telnet_tterm);
+		} else if (strncmp(lcmd, "at$upload", 9) == 0) {
+			/* AT$UPLOAD: mailstation program loader */
+			int bytes = 0;
+			unsigned char b;
+
+			if (sscanf(lcmd, "at$upload%u", &bytes) != 1 ||
+			    bytes < 1)
+				goto error;
+
+			/*
+			 * Assume it's now dead until we see it on the other
+			 * side of the upload
+			 */
+			mailstation_alive = false;
+
+			/* send low and high bytes of size */
+			if (ms_write(bytes & 0xff) != 0 ||
+			    ms_write((bytes >> 8) & 0xff) != 0) {
+				output("ERROR MailStation failed to receive "
+				    "size\r\n");
+				break;
+			}
+
+			outputf("OK send your %d byte%s\r\n", bytes,
+			    bytes == 1 ? "" : "s");
+
+			t = millis();
+			int written = 0;
+			char cksum = 0;
+			while (bytes > 0) {
+				if (!Serial.available()) {
+					if (millis() - t > 5000)
+						break;
+					yield();
+					continue;
+				}
+
+				b = Serial.read();
+
+				if (ms_write(b) != 0)
+					break;
+
+				cksum ^= b;
+
+				if (++written % 32 == 0)
+					output(cksum);
+
+				bytes--;
+				t = millis();
+			}
+
+			if (bytes == 0) {
+				output(cksum);
+				output("\r\nOK good luck\r\n");
+			} else
+				outputf("\r\nERROR MailStation failed to "
+				    "receive byte with %d byte%s left\r\n",
+				    bytes, (bytes == 1 ? "" : "s"));
+			break;
 		} else
 			goto error;
 		break;
