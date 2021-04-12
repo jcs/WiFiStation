@@ -127,8 +127,11 @@ outputf(const char *format, ...)
 int
 output(char c)
 {
-	if (serial_alive)
-		Serial.print(c);
+	if (serial_alive) {
+		Serial.write(c);
+		if (c == '\n')
+			Serial.flush();
+	}
 	if (mailstation_alive)
 		ms_write(c);
 

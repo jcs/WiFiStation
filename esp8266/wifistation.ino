@@ -31,6 +31,7 @@ void
 loop(void)
 {
 	int b = -1;
+	long now = millis();
 
 	switch (state) {
 	case STATE_AT:
@@ -56,8 +57,25 @@ loop(void)
 		}
 
 		switch (b) {
-		case '\r':
 		case '\n':
+		case '\r':
+			if (b == '\r') {
+				/* if sender is using \r\n, ignore the \n */
+				now = millis();
+				while (millis() - now < 10) {
+					int b2 = Serial.peek();
+					if (b2 == -1)
+						continue;
+					else if (b2 == '\n') {
+						/* this is a \r\n, ignore \n */
+						Serial.read();
+						break;
+					} else {
+						/* some other data */
+						break;
+					}
+				}
+			}
 			output("\r\n");
 			curcmd[curcmdpos] = '\0';
 			exec_cmd((char *)&curcmd, curcmdpos);
