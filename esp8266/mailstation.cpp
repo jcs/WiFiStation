@@ -132,8 +132,14 @@ ms_read(void)
 		return -1;
 
 	/* but when both lines are high, something's not right */
-	if (mcp.digitalRead(pAck) == HIGH)
+	if (mcp.digitalRead(pAck) == HIGH) {
+		/*
+		 * Both pins will be raised during a reboot, so in that case
+		 * stop talking.
+		 */
+		mailstation_alive = false;
 		return -1;
+	}
 
 	ms_datadir(INPUT);
 
