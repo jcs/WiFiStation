@@ -28,9 +28,12 @@
 #include <termios.h>
 #include <unistd.h>
 #include <vis.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 
 static int debug = 0;
+static char vbuf[512];
+static int serial_fd = -1;
 
 void
 usage(void)
@@ -40,15 +43,14 @@ usage(void)
 }
 
 void
-setup_serial(int fd, speed_t speed)
+serial_setup(int fd, speed_t speed)
 {
 	struct termios tty;
 
+	if (ioctl(fd, TIOCEXCL) != 0)
+		err(1, "ioctl(TIOCEXCL)");
 	if (tcgetattr(fd, &tty) < 0)
 		err(1, "tcgetattr");
-
-	cfsetospeed(&tty, speed);
-	cfsetispeed(&tty, speed);
 
 	tty.c_cflag |= (CLOCAL | CREAD);	/* ignore modem controls */
 	tty.c_cflag &= ~CSIZE;
@@ -65,8 +67,36 @@ setup_serial(int fd, speed_t speed)
 	tty.c_cc[VMIN] = 1;
 	tty.c_cc[VTIME] = 1;
 
-	if (tcsetattr(fd, TCSANOW, &tty) != 0)
+	cfsetspeed(&tty, speed);
+
+	if (tcsetattr(fd, TCSAFLUSH, &tty) != 0)
 		err(1, "tcsetattr");
+}
+
+size_t
+serial_read(void *buf, size_t nbytes)
+{
+	size_t ret;
+
+	ret = read(serial_fd, buf, nbytes);
+
+	if (debug && ret > 0) {
+		strvisx(vbuf, buf, ret, VIS_NL | VIS_CSTYLE | VIS_OCTAL);
+		printf("<<< %s\n", vbuf);
+	}
+
+	return ret;
+}
+
+size_t
+serial_write(const void *buf, size_t nbytes)
+{
+	if (debug) {
+		strvisx(vbuf, buf, nbytes, VIS_NL | VIS_CSTYLE | VIS_OCTAL);
+		printf(">>> %s\n", vbuf);
+	}
+
+	return write(serial_fd, buf, nbytes);
 }
 
 int
@@ -75,13 +105,11 @@ main(int argc, char *argv[])
 	FILE *pFile;
 	struct stat sb;
 	struct pollfd pfd[1];
-	unsigned int sent = 0, size = 0;
-	int len, rlen, ch, serial_fd = -1;
 	char *fn, *serial_dev = NULL;
+	char buf[128], b, cksum = 0, rcksum;
+	unsigned int sent = 0, size = 0;
+	int len, rlen, ch;
 	int serial_speed = B115200;
-	char buf[128];
-	char b;
-	char cksum = 0, rcksum;
 
 	while ((ch = getopt(argc, argv, "ds:")) != -1) {
 		switch (ch) {
@@ -104,11 +132,11 @@ main(int argc, char *argv[])
 		usage();
 
 	serial_dev = argv[0];
-	serial_fd = open(serial_dev, O_RDWR|O_NOCTTY|O_SYNC);
+	serial_fd = open(serial_dev, O_RDWR|O_SYNC);
 	if (serial_fd < 0)
 		err(1, "open %s", serial_dev);
 
-	setup_serial(serial_fd, serial_speed);
+	serial_setup(serial_fd, serial_speed);
 
 	fn = argv[1];
 	pFile = fopen(fn, "rb");
@@ -124,42 +152,49 @@ main(int argc, char *argv[])
 	if (debug)
 		printf("sending %s (%d bytes) via %s\n", fn, size, serial_dev);
 
-	/* spam some newlines since the TTL connection kinda sucks */
-	write(serial_fd, "\r\n\r\n", 4);
+	/*
+	 * spam some newlines since the TTL connection kinda sucks, and ^C in
+	 * case the device is in AT$PINS? mode
+	 */
+	serial_write("\r\n\r\n", 4);
+	b = 3;
+	serial_write(&b, 1);
 
-	/* clear out any junk before sending our command */
+	/*
+	 * send AT to get some output since sometimes the first character is
+	 * lost and we'll just get 'T', and we need to see a full response to
+	 * AT$UPLOAD later
+	 */
+	serial_write("AT\r", 4);
 	pfd[0].fd = serial_fd;
 	pfd[0].events = POLLIN;
 	while (poll(pfd, 1, 100) > 0)
-		read(serial_fd, buf, sizeof(buf));
+		serial_read(buf, sizeof(buf));
 
-	/* send the actual command */
-	len = snprintf(buf, sizeof(buf), "AT$UPLOAD %d\r\n", size);
-	write(serial_fd, &buf, len - 1);
+	len = snprintf(buf, sizeof(buf), "AT$UPLOAD %d\r", size);
+	serial_write(buf, len);
+	memset(buf, 0, sizeof(buf));
 
 	/* it will echo, along with an OK */
-	memset(buf, 0, sizeof(buf));
 	rlen = 0;
 	while (poll(pfd, 1, 100) > 0) {
-		len = read(serial_fd, buf + rlen, sizeof(buf) - rlen);
+		len = serial_read(buf + rlen, sizeof(buf) - rlen);
 		if (sizeof(buf) - rlen <= 0)
 			break;
-
 		rlen += len;
 	}
 
 	len = 0;
 	if (sscanf(buf, "AT$UPLOAD %d\r\nOK%n", &len, &len) != 1 || len < 10) {
-		char *v;
-		stravis(&v, buf, VIS_NL | VIS_CSTYLE);
-		errx(1, "bad response to AT$UPLOAD: %s", v);
+		strvis(vbuf, buf, VIS_NL | VIS_CSTYLE | VIS_OCTAL);
+		errx(1, "bad response to AT$UPLOAD: %s", vbuf);
 	}
 
 	/* clear out any remaining response so we can read each byte echoed */
 	pfd[0].fd = serial_fd;
 	pfd[0].events = POLLIN;
-	while (poll(pfd, 1, 250) > 0)
-		read(serial_fd, buf, sizeof(buf));
+	while (poll(pfd, 1, 100) > 0)
+		serial_read(buf, sizeof(buf));
 
 	while (sent < size) {
 		b = fgetc(pFile);
@@ -168,23 +203,27 @@ main(int argc, char *argv[])
 		sent++;
 
 		if (sent % 32 == 0) {
-			if (read(serial_fd, &rcksum, 1) != 1 ||
-			    rcksum != cksum) {
+			if (poll(pfd, 1, 100) < 1 ||
+			    read(serial_fd, &rcksum, 1) != 1 || rcksum != cksum) {
 				printf("\n");
 				errx(1, "failed checksum of byte %d/%d "
 				    "(expected 0x%x, received 0x%x)",
-				    sent, size, cksum, rcksum);
+				    sent, size, cksum & 0xff, rcksum & 0xff);
 			}
 		}
 
-		if (sent == 1 || sent == size || sent % 32 == 0) {
-			printf("\rsent: %05d/%05d", sent, size);
-			fflush(stdout);
-		}
+		printf("\rsent: %05d/%05d", sent, size);
+		fflush(stdout);
 	}
 	fclose(pFile);
 
 	printf("\n");
+
+	/* wait for our final OK */
+	while (poll(pfd, 1, 200) > 0)
+		serial_read(buf, sizeof(buf));
+
+	close(serial_fd);
 
 	return 0;
 }
