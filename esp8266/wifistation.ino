@@ -349,20 +349,20 @@ exec_cmd(char *cmd, size_t len)
 				goto error;
 
 			/*
-			 * Only use Serial writing from here on out since
-			 * output() and outputf() will try to write to the
-			 * MailStation and corrupt our upload.
+			 * Assume it's now dead until we see it on the other
+			 * side of the upload
 			 */
+			mailstation_alive = false;
 
 			/* send low and high bytes of size */
 			if (ms_write(bytes & 0xff) != 0 ||
 			    ms_write((bytes >> 8) & 0xff) != 0) {
-				Serial.printf("ERROR MailStation failed to "
-				    "receive size\r\n");
+				output("ERROR MailStation failed to receive "
+				    "size\r\n");
 				break;
 			}
 
-			Serial.printf("OK send your %d byte%s\r\n", bytes,
+			outputf("OK send your %d byte%s\r\n", bytes,
 			    bytes == 1 ? "" : "s");
 
 			t = millis();
@@ -384,17 +384,17 @@ exec_cmd(char *cmd, size_t len)
 				cksum ^= b;
 
 				if (++written % 32 == 0)
-					Serial.write(cksum);
+					output(cksum);
 
 				bytes--;
 				t = millis();
 			}
 
 			if (bytes == 0) {
-				Serial.write(cksum);
-				Serial.print("\r\nOK\r\n");
+				output(cksum);
+				output("\r\nOK good luck\r\n");
 			} else
-				Serial.printf("\r\nERROR MailStation failed to "
+				outputf("\r\nERROR MailStation failed to "
 				    "receive byte with %d byte%s left\r\n",
 				    bytes, (bytes == 1 ? "" : "s"));
 			break;
