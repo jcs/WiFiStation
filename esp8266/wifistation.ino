@@ -199,6 +199,8 @@ exec_cmd(char *cmd, size_t len)
 		switch (len == 3 ? '0' : cmd[3]) {
 		case '0':
 			/* ATI or ATI0: show settings */
+			outputf("Firmware version:  %s\r\n",
+			    WIFISTATION_VERSION);
 			outputf("Serial baud rate:  %d\r\n",
 			    settings->baud);
 			outputf("Default WiFi SSID: %s\r\n",
@@ -253,6 +255,10 @@ exec_cmd(char *cmd, size_t len)
 			output("OK\r\n");
 			break;
 		}
+		case '3':
+			/* ATI3: show version */
+			outputf("%s\r\nOK\r\n", WIFISTATION_VERSION);
+			break;
 		default:
 			goto error;
 		}
