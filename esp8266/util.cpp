@@ -32,13 +32,22 @@ setup(void)
 	if (memcmp(settings->magic, EEPROM_MAGIC_BYTES,
 	    sizeof(settings->magic)) == 0) {
 		/* do migrations if needed based on current revision */
-		settings->revision = 1;
+		switch (settings->revision) {
+		case 1:
+			settings->http_server = 0;
+			break;
+		}
+
+		if (settings->revision != EEPROM_REVISION) {
+			settings->revision = EEPROM_REVISION;
+			EEPROM.commit();
+		}
 	} else {
 		/* start over */
 		memset(settings, 0, sizeof(struct eeprom_data));
 		memcpy(settings->magic, EEPROM_MAGIC_BYTES,
 		    sizeof(settings->magic));
-		settings->revision = 1;
+		settings->revision = EEPROM_REVISION;
 
 		settings->baud = 115200;
 
@@ -48,6 +57,10 @@ setup(void)
 		/* msTERM defaults */
 		settings->telnet_tts_w = 64;
 		settings->telnet_tts_h = 15;
+
+		settings->http_server = 0;
+
+		EEPROM.commit();
 	}
 
 	Serial.begin(settings->baud);
@@ -64,6 +77,8 @@ setup(void)
 		WiFi.disconnect();
 	else
 		WiFi.begin(settings->wifi_ssid, settings->wifi_pass);
+
+	http_setup();
 }
 
 void
@@ -106,6 +121,7 @@ outputf(const char *format, ...)
 	va_end(arg);
 
 	if (len > sizeof(temp) - 1) {
+		/* too big for stack buffer, malloc something bigger */
 		buf = (char *)malloc(len + 1);
 		if (!buf)
 			return 0;

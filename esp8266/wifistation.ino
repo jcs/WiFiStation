@@ -33,6 +33,8 @@ loop(void)
 	int b = -1;
 	long now = millis();
 
+	http_process();
+
 	switch (state) {
 	case STATE_AT:
 		if ((b = ms_read()) != -1) {
@@ -216,6 +218,8 @@ exec_cmd(char *cmd, size_t len)
 				outputf("DNS Server IP:     %s\r\n",
 				    WiFi.dnsIP().toString().c_str());
 			}
+			outputf("HTTP Server:       %s\r\n",
+			    settings->http_server ? "yes" : "no");
 			output("OK\r\n");
 			break;
 		case '1': {
@@ -270,7 +274,20 @@ exec_cmd(char *cmd, size_t len)
 	case '$':
 		/* wifi232 commands */
 
-		if (strcmp(lcmd, "at$net=0") == 0) {
+		if (strcmp(lcmd, "at$http=0") == 0) {
+			/* AT$HTTP=0: disable http server */
+			settings->http_server = 0;
+			http_setup();
+			output("OK\r\n");
+		} else if (strcmp(lcmd, "at$http=1") == 0) {
+			/* AT$HTTP=1: enable http server */
+			settings->http_server = 1;
+			http_setup();
+			output("OK\r\n");
+		} else if (strcmp(lcmd, "at$http?") == 0) {
+			/* AT$HTTP?: show http server setting */
+			outputf("%d\r\nOK\r\n", settings->http_server);
+		} else if (strcmp(lcmd, "at$net=0") == 0) {
 			/* AT$NET=0: disable telnet setting */
 			settings->telnet = 0;
 			output("OK\r\n");
@@ -431,12 +448,18 @@ exec_cmd(char *cmd, size_t len)
 			outputf("%s\r\nOK\r\n", settings->telnet_tterm);
 		} else if (strncmp(lcmd, "at$upload", 9) == 0) {
 			/* AT$UPLOAD: mailstation program loader */
-			int bytes = 0;
+			unsigned int bytes = 0;
 			unsigned char b;
 
 			if (sscanf(lcmd, "at$upload%u", &bytes) != 1 ||
 			    bytes < 1)
 				goto error;
+
+			if (bytes > MAX_UPLOAD_SIZE) {
+				outputf("ERROR size cannot be larger than "
+				    "%d\r\n", MAX_UPLOAD_SIZE);
+				break;
+			}
 
 			/*
 			 * Assume it's now dead until we see it on the other

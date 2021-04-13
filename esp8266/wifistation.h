@@ -29,6 +29,7 @@ struct __attribute((__packed__)) eeprom_data {
 	char magic[3]; /* "jcs" */
 #define EEPROM_MAGIC_BYTES	"jcs"
 	uint8_t revision;
+#define EEPROM_REVISION		2
 	char wifi_ssid[64];
 	char wifi_pass[64];
 	uint32_t baud;
@@ -36,9 +37,12 @@ struct __attribute((__packed__)) eeprom_data {
 	uint8_t telnet_tts_w;
 	uint8_t telnet_tts_h;
 	uint8_t telnet;
+	uint8_t http_server;
 };
 
 extern struct eeprom_data *settings;
+
+#define MAX_UPLOAD_SIZE (16 * 1024)
 
 /* these are ESP8266 pins */
 const int pRedLED   =  0;
@@ -85,5 +89,9 @@ int telnet_connect(char *host, uint16_t port);
 bool telnet_connected(void);
 int telnet_read(void);
 int telnet_write(char b);
+
+/* http.cpp */
+void http_setup(void);
+void http_process(void);
 
 #endif
