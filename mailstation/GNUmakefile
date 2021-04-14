@@ -5,18 +5,18 @@ SDCC	?= sdcc -mz80
 
 CFLAGS	+= -Wall
 
-all: loader.bin
+all: wsloader.bin
 
 clean:
 	rm -f *.{bin,ihx,lk,lst,map,noi,rel}
 
 # parallel loader
-loader.rel: loader.asm
+wsloader.rel: wsloader.asm
 	$(ASZ80) -o $@ $<
 
-loader.ihx: loader.rel
+wsloader.ihx: wsloader.rel
 	$(SDCC) --no-std-crt0 -o $@ $<
 
-loader.bin: loader.ihx
+wsloader.bin: wsloader.ihx
 	objcopy -Iihex -Obinary $< $@
 	hexdump -C $@
