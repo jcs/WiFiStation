@@ -396,6 +396,41 @@ exec_cmd(char *cmd, size_t len)
 			}
 			ms_datadir(INPUT);
 			Serial.print("OK\r\n");
+		} else if (strncmp(lcmd, "at$sb=", 6) == 0) {
+			uint32_t baud = 0;
+			int chars = 0;
+
+			/* AT$SB=...: set baud rate */
+			if (sscanf(lcmd, "at$sb=%d%n", &baud, &chars) != 1 ||
+		    	    chars == 0) {
+				output("ERROR invalid baud rate\r\n");
+				break;
+			}
+
+			switch (baud) {
+			case 110:
+			case 300:
+			case 1200:
+			case 2400:
+			case 4800:
+			case 9600:
+			case 19200:
+			case 38400:
+			case 57600:
+			case 115200:
+				settings->baud = baud;
+				outputf("OK switching to %d\r\n",
+				    settings->baud);
+				Serial.flush();
+				Serial.begin(settings->baud);
+				break;
+			default:
+				output("ERROR unsupported baud rate\r\n");
+				break;
+			}
+		} else if (strcmp(lcmd, "at$sb?") == 0) {
+			/* AT$SB?: print baud rate */
+			outputf("%d\r\nOK\r\n", settings->baud);
 		} else if (strncmp(lcmd, "at$ssid=", 8) == 0) {
 			/* AT$SSID=...: set wifi ssid */
 			memset(settings->wifi_ssid, 0,
