@@ -32,10 +32,14 @@ static const char html_wrapper[] PROGMEM = R"END(<!doctype html>
 			font-size: 12pt;
 			padding: 1em;
 		}
+		h3 {
+			margin: 0;
+		}
 	</style>
 </head>
 <body>
 <h3>WiFiStation %s</h3>
+<p>
 %s
 </body>
 </html>
@@ -53,34 +57,63 @@ http_process(void)
 	http->handleClient();
 }
 
-size_t
-http_html_template(char **dest, char *body, ...)
+void
+http_send_result(int status, bool include_home, char *body, ...)
 {
-	va_list arg;
 	size_t len;
-	char *tmp;
+	va_list arg;
+	const char *accept = http->header("Accept").c_str();
+	char *doc = NULL;
 
 	/* expand body format */
 	va_start(arg, body);
-	len = vasprintf(&tmp, body, arg);
+	len = vasprintf(&doc, body, arg);
 	va_end(arg);
 
 	if (len == -1)
 		goto fail;
 
-	/* write body into template */
-	len = asprintf(dest, html_wrapper, WiFi.localIP().toString().c_str(),
-	    WIFISTATION_VERSION, tmp);
-	if (len == -1) {
-		free(tmp);
-		goto fail;
+	/* if Accept header starts with text/html, client prefers html */
+	if (accept && strncmp(accept, "text/html", 9) == 0) {
+		char *tmp;
+
+		/* append home link to body */
+		if (include_home) {
+			len = asprintf(&tmp, "%s"
+			    "<p>"
+			    "<a href=\"/\">Home</a>", doc);
+			if (len == -1)
+				goto fail;
+			free(doc);
+			doc = tmp;
+		}
+
+		/* insert body into html template */
+		len = asprintf(&tmp, html_wrapper,
+		    WiFi.localIP().toString().c_str(), WIFISTATION_VERSION,
+		    doc);
+		if (len == -1)
+			goto fail;
+		free(doc);
+		doc = tmp;
+
+		http->send(status, "text/html", doc);
+	} else {
+		/* append newline since this is probably going to a terminal */
+		doc = (char *)realloc(doc, len + 2);
+		doc[len] = '\n';
+		doc[len + 1] = '\0';
+		http->send(status, "text/plain", doc);
 	}
 
-	return len;
+	free(doc);
+	return;
 
 fail:
+	if (doc != NULL)
+		free(doc);
 	http->send(500, "text/plain", "out of memory :(");
-	return -1;
+	return;
 }
 
 void
@@ -98,10 +131,13 @@ http_setup(void)
 		return;
 	}
 
+	const char *headerkeys[] = { "Accept" };
+	http->collectHeaders(headerkeys, 1);
+
 	http->on("/", HTTP_GET, []() {
 		char *doc = NULL;
 
-		http_html_template(&doc, R"END(
+		http_send_result(200, false, R"END(
 <form action="/upload" method="POST" enctype="multipart/form-data">
 <p>
 Binary to execute on MailStation (<em>maximum size is %d bytes</em>):
@@ -116,10 +152,6 @@ the upload.
 </form>
 )END",
 		    MAX_UPLOAD_SIZE, MAX_UPLOAD_SIZE, MAX_UPLOAD_SIZE);
-		if (doc == NULL)
-			return;
-		http->send(200, "text/html", doc);
-		free(doc);
 	});
 
 	/*
@@ -133,7 +165,7 @@ the upload.
 	 * the same data.
 	 */
 	http->on("/upload", HTTP_POST, []() {
-		http->send(200);
+		http_send_result(400, true, "Failed receiving file.");
 	}, []() {
 		HTTPUpload& upload = http->upload();
 		char tmp[32];
@@ -147,6 +179,19 @@ the upload.
 			upload_size += upload.currentSize;
 			break;
 		case UPLOAD_FILE_END:
+			if (upload_size == 0) {
+				http_send_result(400, true,
+				    "Failed receiving file.");
+				return;
+			}
+
+			if (upload_size > MAX_UPLOAD_SIZE) {
+				http_send_result(400, true,
+				    "File upload cannot be larger than %d "
+				    "bytes.", MAX_UPLOAD_SIZE);
+				return;
+			}
+
 			snprintf(tmp, sizeof(tmp), "/upload_measured?size=%d",
 			    upload_size);
 			http->sendHeader("Location", tmp);
@@ -156,57 +201,38 @@ the upload.
 	});
 
 	http->on("/upload_measured", HTTP_POST, []() {
-		http->send(200);
+		http_send_result(400, true, "Failed receiving file.");
 	}, []() {
 		HTTPUpload& upload = http->upload();
-		char *doc = NULL;
 
 		switch (upload.status) {
 		case UPLOAD_FILE_START:
 			delivered_bytes = 0;
 
 			if (!(upload_size = atoi(http->arg("size").c_str()))) {
-				http_html_template(&doc,
-				    "No size parameter passed. Perhaps your "
-				    "browser failed to follow the 307 "
-				    "redirect properly."
-				    "<p>"
-				    "<a href=\"/\">Home</a>");
-				if (doc == NULL)
-					return;
-				http->send(400, "text/html", doc);
-				free(doc);
+				http_send_result(400, true, "No size "
+				    "parameter passed. Perhaps your browser "
+				    "failed to follow the 307 redirect "
+				    "properly.");
 				return;
 			}
 
 			if (upload_size > MAX_UPLOAD_SIZE) {
-				http_html_template(&doc,
-				    "File upload cannot be larger than %d."
-				    "<p>"
-				    "<a href=\"/\">Home</a>",
-				    MAX_UPLOAD_SIZE);
-				if (doc == NULL)
-					return;
-				http->send(400, "text/html", doc);
-				free(doc);
+				http_send_result(400, true,
+				    "File upload cannot be larger than %d "
+				    "bytes.", MAX_UPLOAD_SIZE);
 				return;
 			}
 
 			if (ms_write(upload_size & 0xff) != 0 ||
 			    ms_write((upload_size >> 8) & 0xff) != 0) {
-				http_html_template(&doc,
+				http_send_result(400, true,
 				    "Failed sending size bytes "
 				    "(<tt>0x%x</tt>, <tt>0x%x</tt>) to "
 				    "MailStation. Is the WSLoader program "
-				    "running?"
-				    "<p>"
-				    "<a href=\"/\">Home</a>",
+				    "running?",
 				    upload_size & 0xff,
 				    (upload_size >> 8) & 0xff);
-				if (doc == NULL)
-					return;
-				http->send(400, "text/html", doc);
-				free(doc);
 				return;
 			}
 			break;
@@ -214,37 +240,26 @@ the upload.
 			for (int i = 0; i < upload.currentSize; i++) {
 				delivered_bytes++;
 				if (ms_write(upload.buf[i]) == -1) {
-					http_html_template(&doc,
+					http_send_result(400, true,
 					    "Failed uploading to MailStation "
-					    "at byte %d/%d."
-					    "<p>"
-					    "<a href=\"/\">Home</a>",
+					    "at byte %d/%d.",
 					    delivered_bytes, upload_size);
-					if (doc == NULL)
-						return;
-					http->send(400, "text/html", doc);
-					free(doc);
 					return;
 				}
 				yield();
+				delayMicroseconds(500);
 			}
 			break;
 		case UPLOAD_FILE_END:
-			http_html_template(&doc,
-			    "Successfully uploaded %d byte%s to MailStation."
-			    "<p>"
-			    "<a href=\"/\">Home</a>",
+			http_send_result(400, true,
+			    "Successfully uploaded %d byte%s to MailStation.",
 			    delivered_bytes, delivered_bytes == 1 ? "" : "s");
-			if (doc == NULL)
-				return;
-			http->send(200, "text/html", doc);
-			free(doc);
-			break;
+			return;
 		}
 	});
 
 	http->onNotFound([]() {
-		http->send(404, "text/plain", ":(");
+		http_send_result(404, true, "404");
 	});
 
 	http->begin();
