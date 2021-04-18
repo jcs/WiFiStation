@@ -310,7 +310,20 @@ telnet_write(char b)
 	if (settings->telnet && b == IAC)
 		telnet.write(b);
 
-	telnet.write(b);
+	return telnet.write(b);
+}
 
-	return 0;
+int
+telnet_write(String s)
+{
+	String s2 = "";
+
+	for (int i = 0; i < s.length(); i++) {
+		/* escape */
+		if (settings->telnet && s.charAt(i) == IAC)
+			s2 += IAC;
+		s2 += s.charAt(i);
+	}
+
+	return telnet.print(s2);
 }

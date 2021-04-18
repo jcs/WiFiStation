@@ -89,6 +89,7 @@ int telnet_connect(char *host, uint16_t port);
 bool telnet_connected(void);
 int telnet_read(void);
 int telnet_write(char b);
+int telnet_write(String s);
 
 /* http.cpp */
 void http_setup(void);

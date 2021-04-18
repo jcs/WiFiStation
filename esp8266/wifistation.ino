@@ -99,7 +99,18 @@ loop(void)
 	case STATE_TELNET:
 		if (mailstation_alive && (b = ms_read()) != -1) {
 			mailstation_alive = true;
-			telnet_write(b);
+			if (b == '\e') {
+				/* probably a multi-character command */
+				String seq = "" + (char)b;
+				unsigned long t = millis();
+
+				while (millis() - t < 50) {
+					if ((b = ms_read()) != -1)
+						seq += (char)b;
+				}
+				telnet_write(seq);
+			} else
+				telnet_write(b);
 		} else if (Serial.available() && (b = Serial.read())) {
 			serial_alive = true;
 			telnet_write(b);
