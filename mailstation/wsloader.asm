@@ -72,7 +72,6 @@ icon1:
 	.equ	STATUS_PORT,		#0x21
 	.equ	STATUS_BUSY,		#(1 << 7)
 	.equ	STATUS_ACK,		#(1 << 6)
-	.equ	STATUS_PAPEROUT,	#(1 << 5)
 
 main:
 	; lower control lines
@@ -129,6 +128,8 @@ wait_for_busy:
 	in	a, (#STATUS_PORT)
 	and	#STATUS_BUSY		; is busy high? (strobe on writer)
 	jr	z, wait_for_busy	; no, wait until it is
+	and	#STATUS_ACK		; but is ack high too?  that's bogus
+	jr	nz, wait_for_busy
 	ld	a, #CONTROL_LINEFEED	; raise linefeed
 	out	(#CONTROL_PORT), a
 wait_for_busy_ack:
