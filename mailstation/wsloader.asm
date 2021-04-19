@@ -1,7 +1,7 @@
 ; vim:syntax=z8a:ts=8
 ;
 ; WiFiStation
-; parallel port loader
+; Parallel port loader
 ;
 ; Copyright (c) 2019-2021 joshua stein <jcs@jcs.org>
 ;
