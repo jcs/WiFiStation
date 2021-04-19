@@ -24,7 +24,9 @@ enum {
 };
 
 static char curcmd[128] = { 0 };
-static unsigned int curcmdpos = 0;
+static char lastcmd[128] = { 0 };
+static unsigned int curcmdlen = 0;
+static unsigned int lastcmdlen = 0;
 static uint8_t state = STATE_AT;
 
 void
@@ -49,12 +51,18 @@ loop(void)
 		else
 			return;
 
-		/* USR modem mode, ignore input not starting with 'at' */
-		if (curcmdpos == 0 && (b != 'A' && b != 'a')) {
+		/* USR modem mode, ignore input not starting with at or a/ */
+		if (curcmdlen == 0 && (b != 'A' && b != 'a')) {
 			return;
-		} else if (curcmdpos == 1 && (b != 'T' && b != 't')) {
-			outputf("\b \b");
-			curcmdpos = 0;
+		} else if (curcmdlen == 1 && b == '/') {
+			output("/\r\n");
+			curcmd[0] = '\0';
+			curcmdlen = 0;
+			exec_cmd((char *)&lastcmd, lastcmdlen);
+			break;
+		} else if (curcmdlen == 1 && (b != 'T' && b != 't')) {
+			output("\b \b");
+			curcmdlen = 0;
 			return;
 		}
 
@@ -79,20 +87,20 @@ loop(void)
 				}
 			}
 			output("\r\n");
-			curcmd[curcmdpos] = '\0';
-			exec_cmd((char *)&curcmd, curcmdpos);
+			curcmd[curcmdlen] = '\0';
+			exec_cmd((char *)&curcmd, curcmdlen);
 			curcmd[0] = '\0';
-			curcmdpos = 0;
+			curcmdlen = 0;
 			break;
 		case '\b':
 		case 127:
-			if (curcmdpos) {
+			if (curcmdlen) {
 				output("\b \b");
-				curcmdpos--;
+				curcmdlen--;
 			}
 			break;
 		default:
-			curcmd[curcmdpos++] = b;
+			curcmd[curcmdlen++] = b;
 			output(b);
 		}
 		break;
@@ -149,6 +157,9 @@ exec_cmd(char *cmd, size_t len)
 		errstr = strdup("not an AT command");
 		goto error;
 	}
+
+	memcpy(&lastcmd, lcmd, len + 1);
+	lastcmdlen = len;
 
 	if (len == 2) {
 		output("OK\r\n");
