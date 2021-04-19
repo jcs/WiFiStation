@@ -87,6 +87,7 @@ void ms_writedata(char c);
 /* telnet.cpp */
 int telnet_connect(char *host, uint16_t port);
 bool telnet_connected(void);
+void telnet_disconnect(void);
 int telnet_read(void);
 int telnet_write(char b);
 int telnet_write(String s);

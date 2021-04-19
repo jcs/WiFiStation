@@ -28,11 +28,13 @@ static char lastcmd[128] = { 0 };
 static unsigned int curcmdlen = 0;
 static unsigned int lastcmdlen = 0;
 static uint8_t state = STATE_AT;
+static unsigned int plusses = 0;
+static unsigned long plus_wait = 0;
 
 void
 loop(void)
 {
-	int b = -1;
+	int b = -1, i;
 	long now = millis();
 
 	http_process();
@@ -105,6 +107,8 @@ loop(void)
 		}
 		break;
 	case STATE_TELNET:
+		b = -1;
+
 		if (mailstation_alive && (b = ms_read()) != -1) {
 			mailstation_alive = true;
 			if (b == '\e') {
@@ -117,19 +121,49 @@ loop(void)
 						seq += (char)b;
 				}
 				telnet_write(seq);
-			} else
-				telnet_write(b);
-		} else if (Serial.available() && (b = Serial.read())) {
+				plusses = 0;
+				break;
+			}
+		} else if (Serial.available() && (b = Serial.read()))
 			serial_alive = true;
+
+		if (b == -1 && plus_wait > 0 && (millis() - plus_wait) >= 500) {
+			/* received no input within 500ms of a plus */
+			if (plusses >= 3) {
+				state = STATE_AT;
+				output("\r\nOK\r\n");
+			} else {
+				/* cancel, flush any plus signs received */
+				for (i = 0; i < plusses; i++)
+					telnet_write("+");
+			}
+			plusses = 0;
+			plus_wait = 0;
+		} else if (b != -1) {
+			if (b == '+') {
+				plusses++;
+				plus_wait = millis();
+				break;
+			}
+
+			if (plusses) {
+				for (i = 0; i < plusses; i++)
+					telnet_write("+");
+				plusses = 0;
+			}
+			plus_wait = 0;
 			telnet_write(b);
-		} else if ((b = telnet_read()) != -1) {
+			break;
+		}
+
+		if ((b = telnet_read()) != -1) {
 			if (mailstation_alive)
 				ms_write(b);
 			if (serial_alive)
 				Serial.write(b);
 			return;
 		} else if (!telnet_connected()) {
-			outputf("\r\nNO CARRIER\r\n");
+			output("\r\nNO CARRIER\r\n");
 			state = STATE_AT;
 			break;
 		}
@@ -209,13 +243,17 @@ exec_cmd(char *cmd, size_t len)
 			    port);
 			state = STATE_TELNET;
 		} else {
-			outputf("NO ANSWER\r\n");
+			output("NO ANSWER\r\n");
 		}
 
 		free(ohost);
 
 		break;
 	}
+	case 'h':
+		telnet_disconnect();
+		output("OK\r\n");
+		break;
 	case 'i':
 		if (len > 4)
 			goto error;
@@ -288,6 +326,12 @@ exec_cmd(char *cmd, size_t len)
 		default:
 			goto error;
 		}
+		break;
+	case 'o':
+		if (telnet_connected())
+			state = STATE_TELNET;
+		else
+			goto error;
 		break;
 	case 'z':
 		output("OK\r\n");

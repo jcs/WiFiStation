@@ -119,6 +119,13 @@ telnet_connected(void)
 }
 
 void
+telnet_disconnect(void)
+{
+	telnet.stop();
+	telnet_state = TELNET_STATE_DISCONNECTED;
+}
+
+void
 telnet_process_sb(void)
 {
 	switch (telnet_sb[0]) {
