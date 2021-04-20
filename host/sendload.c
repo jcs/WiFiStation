@@ -38,8 +38,10 @@ static int serial_fd = -1;
 void
 usage(void)
 {
-	errx(1, "usage: %s [-d] [-s serial speed] <serial device> <file>",
+	fprintf(stderr, "usage: %s [-d] [-s serial speed] <serial device> "
+	    "<file>\n",
 	    getprogname());
+	exit(1);
 }
 
 void
