@@ -25,7 +25,7 @@
 
 	; which page (Yahoo! menu slot) to save an uploaded program to
 	; page 0 is 0x0000, page 1 0x4000, page 2, 0x8000, etc.
-	.equ	DATAFLASH_PAGE, #0
+	.equ	DATAFLASH_PAGE,		#0
 
 	; when running from WSLoader, we are loaded at 0x8000 and use slot 4
 	.equ	SLOT_ADDR,		#0x4000
