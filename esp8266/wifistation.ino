@@ -278,6 +278,8 @@ exec_cmd(char *cmd, size_t len)
 				outputf("DNS Server IP:     %s\r\n",
 				    WiFi.dnsIP().toString().c_str());
 			}
+			outputf("MailStation Alive: %s\r\n",
+			    mailstation_alive ? "yes" : "no");
 			outputf("HTTP Server:       %s\r\n",
 			    settings->http_server ? "yes" : "no");
 			output("OK\r\n");

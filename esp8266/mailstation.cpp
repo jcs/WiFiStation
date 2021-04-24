@@ -98,7 +98,7 @@ ms_setup(void)
 {
 	uint8_t iocon;
 
-	for (;;) {
+	for (int i = 0; i < 10; i++) {
 		ms_init();
 		iocon = mcp.readRegister(MCP23S18_IOCON);
 
