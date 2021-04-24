@@ -4,7 +4,10 @@ all: $(SUBDIRS)
 $(SUBDIRS):
 	$(MAKE) -C $@
 
-flash_esp8266: esp8266
-	env UPLOAD_PORT=/dev/cuaU1 gmake -C esp8266 flash
+clean:
+	for f in $(SUBDIRS); do $(MAKE) -C $$f clean; done
 
-.PHONY: all $(SUBDIRS)
+flash_esp8266: esp8266
+	env UPLOAD_PORT=/dev/cuaU1 $(MAKE) -C esp8266 flash
+
+.PHONY: all clean $(SUBDIRS)
