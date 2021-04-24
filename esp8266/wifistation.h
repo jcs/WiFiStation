@@ -22,7 +22,7 @@
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
 
-#define WIFISTATION_VERSION	"0.2"
+#define WIFISTATION_VERSION	"0.3"
 
 #define EEPROM_SIZE		512
 struct __attribute((__packed__)) eeprom_data {
