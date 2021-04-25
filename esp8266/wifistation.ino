@@ -549,6 +549,15 @@ exec_cmd(char *cmd, size_t len)
 		} else if (strcmp(lcmd, "at$tty?") == 0) {
 			/* AT$TTY?: show telnet TTYPE setting */
 			outputf("%s\r\nOK\r\n", settings->telnet_tterm);
+		} else if (strcmp(lcmd, "at$update?") == 0) {
+			/* AT$UPDATE?: show whether an OTA update is available */
+			update_process(false, false);
+		} else if (strcmp(lcmd, "at$update!") == 0) {
+			/* AT$UPDATE!: force an OTA update */
+			update_process(true, true);
+		} else if (strcmp(lcmd, "at$update") == 0) {
+			/* AT$UPDATE: do an OTA update */
+			update_process(true, false);
 		} else if (strncmp(lcmd, "at$upload", 9) == 0) {
 			/* AT$UPLOAD: mailstation program loader */
 			unsigned int bytes = 0;

@@ -96,4 +96,7 @@ int telnet_write(String s);
 void http_setup(void);
 void http_process(void);
 
+/* update.cpp */
+void update_process(bool do_update, bool force);
+
 #endif
