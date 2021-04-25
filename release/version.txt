@@ -1,0 +1,3 @@
+0.3
+314320
+https://cdn.jcs.org/wifistation/release/wifistation.bin

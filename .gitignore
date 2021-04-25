@@ -1,5 +1,6 @@
 esp8266/obj
 host/sendload
+mailstation/*.bin
 mailstation/*.ihx
 mailstation/*.lk
 mailstation/*.lst
