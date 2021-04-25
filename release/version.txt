@@ -1,4 +1,4 @@
-0.3
-314320
-ef94f0bd2aab82d24f0dd00811050feb
-https://cdn.jcs.org/wifistation/release/wifistation.bin
+0.4
+427968
+ab502e7453f6f53efce08d7529248185
+https://raw.githubusercontent.com/jcs/WiFiStation/main/release/wifistation.bin
