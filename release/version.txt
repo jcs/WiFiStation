@@ -1,3 +1,4 @@
 0.3
 314320
+ef94f0bd2aab82d24f0dd00811050feb
 https://cdn.jcs.org/wifistation/release/wifistation.bin

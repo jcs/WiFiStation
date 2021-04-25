@@ -19,6 +19,7 @@ release: all
 	cp -f mailstation/flashloader.bin release/
 	echo $(VERSION) > release/version.txt
 	stat -f "%z" release/wifistation.bin >> release/version.txt
+	md5 -q release/wifistation.bin >> release/version.txt
 	echo $(DOWNLOAD_URL) >> release/version.txt
 
 .PHONY: all clean $(SUBDIRS)
