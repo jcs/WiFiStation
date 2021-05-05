@@ -191,7 +191,7 @@ telnet_read(void)
 {
 	char b;
 
-	if (!telnet.connected() || !telnet.available())
+	if (!telnet.available())
 		return -1;
 
 	b = telnet.read();
