@@ -195,8 +195,6 @@ telnet_read(void)
 		return -1;
 
 	b = telnet.read();
-	if (!settings->telnet)
-		return b;
 
 	if (telnet_state != TELNET_STATE_CONNECTED)
 		TELNET_DEBUG("telnet_state[%d]: 0x%x (%d)\r\n", telnet_state,
