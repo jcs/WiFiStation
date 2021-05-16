@@ -35,7 +35,10 @@ setup(void)
 		switch (settings->revision) {
 		case 1:
 			settings->http_server = 0;
-			break;
+			/* FALLTHROUGH */
+		case 2:
+			memset(settings->bookmarks, 0, BOOKMARK_SIZE * NUM_BOOKMARKS);
+			strcpy(settings->bookmarks[0], "klud.ge");
 		}
 
 		if (settings->revision != EEPROM_REVISION) {

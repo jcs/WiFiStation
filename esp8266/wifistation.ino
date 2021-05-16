@@ -202,32 +202,70 @@ exec_cmd(char *cmd, size_t len)
 
 	switch (lcmd[2]) {
 	case 'd': {
-		char *host, *ohost;
+		char *host, *ohost, *bookmark;
 		uint16_t port;
 		int chars;
+		int index;
 
+		if (len < 5)
+			goto error;
+
+		switch (lcmd[3]) {
 		/* ATDT: dial a host */
-		if (len < 5 || lcmd[3] != 't')
-			goto error;
+		case 't':
+			host = ohost = (char *)malloc(len);
+			if (host == NULL)
+				goto error;
+			host[0] = '\0';
+			if (sscanf(lcmd, "atdt%[^:]:%d%n", host, &port, &chars)
+			    == 2 && chars > 0)
+				/* matched host:port */
+				;
+			else if (sscanf(lcmd, "atdt%[^:]%n", host, &chars) == 1
+			    && chars > 0)
+				/* host without port */
+				port = 23;
+			else {
+				errstr = strdup("invalid hostname");
+				goto error;
+			}
+			break;
+		/* ATDS: dial a stored host */
+		case 's':
+			if (sscanf(lcmd, "atds%d", &index) != 1)
+				goto error;
 
-		host = ohost = (char *)malloc(len);
-		if (host == NULL)
-			goto error;
-		host[0] = '\0';
+			if (index < 1 || index > NUM_BOOKMARKS) {
+				errstr = strdup("invalid index");
+				goto error;
+			}
 
-		if (sscanf(lcmd, "atdt%[^:]:%d%n", host, &port, &chars) == 2 &&
-		    chars > 0)
-			/* matched host:port */
-			;
-		else if (sscanf(lcmd, "atdt%[^:]%n", host, &chars) == 1 &&
-		    chars > 0)
-		    	/* host without port */
-			port = 23;
-		else {
-			errstr = strdup("invalid hostname");
+			bookmark = settings->bookmarks[index-1];
+
+			host = ohost = (char *)malloc(BOOKMARK_SIZE);
+			if (host == NULL)
+				goto error;
+
+			host[0] = '\0';
+
+			if (sscanf(bookmark, "%[^:]:%d%n", host, &port, &chars)
+			    == 2 && chars > 0)
+				/* matched host:port */
+				;
+			else if (sscanf(bookmark, "%[^:]%n", host, &chars) == 1
+			    && chars > 0)
+				/* host without port */
+				port = 23;
+			else {
+				errstr = strdup("invalid hostname");
+				goto error;
+			}
+			break;
+		default:
 			goto error;
 		}
 
+		/* skip leading spaces */
 		while (host[0] == ' ')
 			host++;
 
@@ -282,6 +320,11 @@ exec_cmd(char *cmd, size_t len)
 			    mailstation_alive ? "yes" : "no");
 			outputf("HTTP Server:       %s\r\n",
 			    settings->http_server ? "yes" : "no");
+			for (int i = 0; i < NUM_BOOKMARKS; i++) {
+				if (settings->bookmarks[i][0] != '\0')
+					outputf("Bookmark %d:	%s\r\n", i+1,
+					    settings->bookmarks[i]);
+			}
 			output("OK\r\n");
 			break;
 		case '1': {
@@ -641,6 +684,42 @@ exec_cmd(char *cmd, size_t len)
 
 			output("OK\r\n");
 			break;
+		case 'z': {
+			uint32_t index = 0;
+			uint8_t query;
+			int chars = 0;
+
+			if (sscanf(lcmd, "at&z%u=%n", &index, &chars) == 1 &&
+			    chars > 0) {
+				/* AT&Zn=...: store address */
+				query = 0;
+			} else if (sscanf(lcmd, "at&z%u?%n", &index, &chars)
+			    == 1 && chars > 0) {
+				/* AT&Zn?: query stored address */
+				query = 1;
+			} else {
+				errstr = strdup("invalid store command");
+				goto error;
+			}
+
+			if (index < 1 || index > NUM_BOOKMARKS) {
+				errstr = strdup("invalid index");
+				goto error;
+			}
+
+			if (query) {
+				outputf("%s\r\nOK\r\n",
+				    settings->bookmarks[index-1]);
+			} else {
+				memset(settings->bookmarks[index-1], 0,
+				    sizeof(settings->bookmarks[0]));
+				strncpy(settings->bookmarks[index-1],
+				    cmd + 6,
+				    sizeof(settings->bookmarks[0]) - 1);
+				output("OK\r\n");
+			}
+			break;
+		}
 		default:
 			goto error;
 		}
