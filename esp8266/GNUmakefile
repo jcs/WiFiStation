@@ -1,5 +1,8 @@
 # pkg_add makeesparduino
 
+# default of -w supresses all warnings
+COMP_WARNINGS = -Wall -Wextra
+
 BUILD_ROOT =	$(CURDIR)/obj
 EXCLUDE_DIRS =	$(BUILD_ROOT)
 
