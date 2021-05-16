@@ -62,7 +62,7 @@ void led_reset(void);
 void error_flash(void);
 size_t outputf(const char *format, ...);
 int output(char c);
-int output(char *str);
+int output(const char *str);
 int output(String str);
 
 /* mailstation.cpp */

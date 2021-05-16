@@ -58,11 +58,11 @@ http_process(void)
 }
 
 void
-http_send_result(int status, bool include_home, char *body, ...)
+http_send_result(int status, bool include_home, const char *body, ...)
 {
-	size_t len;
 	va_list arg;
 	const char *accept = http->header("Accept").c_str();
+	int len;
 	char *doc = NULL;
 
 	/* expand body format */
@@ -135,8 +135,6 @@ http_setup(void)
 	http->collectHeaders(headerkeys, 1);
 
 	http->on("/", HTTP_GET, []() {
-		char *doc = NULL;
-
 		http_send_result(200, false, R"END(
 <form action="/upload" method="POST" enctype="multipart/form-data">
 <p>
@@ -169,7 +167,6 @@ the upload.
 	}, []() {
 		HTTPUpload& upload = http->upload();
 		char tmp[32];
-		int i;
 
 		switch (upload.status) {
 		case UPLOAD_FILE_START:
@@ -178,6 +175,9 @@ the upload.
 		case UPLOAD_FILE_WRITE:
 			upload_size += upload.currentSize;
 			break;
+		case UPLOAD_FILE_ABORTED:
+			upload_size = 0;
+			/* FALLTHROUGH */
 		case UPLOAD_FILE_END:
 			if (upload_size == 0) {
 				http_send_result(400, true,
@@ -237,7 +237,7 @@ the upload.
 			}
 			break;
 		case UPLOAD_FILE_WRITE:
-			for (int i = 0; i < upload.currentSize; i++) {
+			for (int i = 0; i < (int)upload.currentSize; i++) {
 				delivered_bytes++;
 				if (ms_write(upload.buf[i]) == -1) {
 					http_send_result(400, true,
@@ -251,9 +251,13 @@ the upload.
 			}
 			break;
 		case UPLOAD_FILE_END:
-			http_send_result(400, true,
+			http_send_result(200, true,
 			    "Successfully uploaded %d byte%s to MailStation.",
 			    delivered_bytes, delivered_bytes == 1 ? "" : "s");
+			return;
+		case UPLOAD_FILE_ABORTED:
+			http_send_result(400, true,
+			    "Aborted upload to MailStation.");
 			return;
 		}
 	});

@@ -23,11 +23,10 @@
 WiFiClientSecure client;
 
 bool
-update_https_get_body(char *url, size_t expected_length)
+update_https_get_body(const char *url, long expected_length)
 {
 	char *host, *path;
-	char t[1];
-	int status, httpver, chars, lines, tlength, clength;
+	int status, httpver, chars, lines, tlength, clength = -1;
 
 	if (WiFi.status() != WL_CONNECTED) {
 		output("ERROR WiFi is not connected\r\n");
@@ -121,11 +120,7 @@ void
 update_process(bool do_update, bool force)
 {
 	String url, md5, version;
-	char *host, *path;
-	int bytesize;
-	int lines = 0;
-	size_t clength = 0;
-	bool ret = true;
+	int bytesize = 0, lines = 0;
 
 	if (!update_https_get_body(OTA_VERSION_URL, 0))
 		return;
@@ -187,7 +182,7 @@ update_process(bool do_update, bool force)
 		    total);
 	});
 
-	if (Update.writeStream(client) != bytesize) {
+	if ((int)Update.writeStream(client) != bytesize) {
 		if (Update.getError() == UPDATE_ERROR_BOOTSTRAP)
 			outputf("ERROR update must be done from fresh "
 			    "reset, not from uploaded code\r\n");

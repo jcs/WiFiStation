@@ -77,9 +77,9 @@ bool telnet_echoing = true;
 #define IAC_COMPORT	44	/* Com Port Control Option */
 
 #if DEBUG
-#define TELNET_DEBUG(...) outputf(__VA_ARGS__)
+#define TELNET_DEBUG(...) { outputf(__VA_ARGS__) }
 #else
-#define TELNET_DEBUG(...)
+#define TELNET_DEBUG(...) {}
 #endif
 
 void telnet_process_sb(void);
@@ -139,7 +139,7 @@ telnet_process_sb(void)
 		TELNET_DEBUG("%s: -> IAC SB TTYPE %s\r\n", __func__,
 		    settings->telnet_tterm);
 		telnet.printf("%c%c%c%c", IAC, SB, IAC_TTYPE, IS);
-		for (int i = 0; i < sizeof(settings->telnet_tterm); i++) {
+		for (size_t i = 0; i < sizeof(settings->telnet_tterm); i++) {
 			if (settings->telnet_tterm[i] == '\0')
 				break;
 
@@ -325,7 +325,7 @@ telnet_write(String s)
 {
 	String s2 = "";
 
-	for (int i = 0; i < s.length(); i++) {
+	for (size_t i = 0; i < s.length(); i++) {
 		/* escape */
 		if (settings->telnet && s.charAt(i) == IAC)
 			s2 += IAC;

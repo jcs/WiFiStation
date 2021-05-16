@@ -60,8 +60,6 @@ int data_mode = -1;
 void
 ms_init(void)
 {
-	uint16_t v;
-
 	/* reset the MCP23S18 */
 	pinMode(GPIO_RESET, OUTPUT);
 	digitalWrite(GPIO_RESET, LOW);
@@ -219,12 +217,11 @@ int
 ms_print(String str)
 {
 	size_t len = str.length();
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < len; i++) {
+	for (size_t i = 0; i < len; i++)
 		if ((ret = ms_write(str.charAt(i))) != 0)
 			return ret;
-	}
 
 	return 0;
 }
@@ -233,9 +230,9 @@ int
 ms_print(char *string)
 {
 	size_t len = strlen(string);
-	int i, ret;
+	int ret;
 
-	for (i = 0; i < len; i++)
+	for (size_t i = 0; i < len; i++)
 		if ((ret = ms_write(string[i])) != 0)
 			return ret;
 

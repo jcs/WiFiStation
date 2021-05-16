@@ -25,8 +25,6 @@ bool mailstation_alive = false;
 void
 setup(void)
 {
-	uint16_t v;
-
 	static_assert(sizeof(struct eeprom_data) < EEPROM_SIZE,
 	    "EEPROM_SIZE is not large enough to hold struct eeprom_data");
 
@@ -162,12 +160,11 @@ output(char c)
 }
 
 int
-output(char *str)
+output(const char *str)
 {
 	size_t len = strlen(str);
-	int i, ret;
 
-	for (i = 0; i < len; i++)
+	for (size_t i = 0; i < len; i++)
 		output(str[i]);
 
 	return 0;

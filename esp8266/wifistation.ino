@@ -28,7 +28,7 @@ static char lastcmd[128] = { 0 };
 static unsigned int curcmdlen = 0;
 static unsigned int lastcmdlen = 0;
 static uint8_t state = STATE_AT;
-static unsigned int plusses = 0;
+static int plusses = 0;
 static unsigned long plus_wait = 0;
 
 void
@@ -113,7 +113,7 @@ loop(void)
 			mailstation_alive = true;
 			if (b == '\e') {
 				/* probably a multi-character command */
-				String seq = "" + (char)b;
+				String seq = String((char)b);
 				unsigned long t = millis();
 
 				while (millis() - t < 50) {
@@ -217,7 +217,7 @@ exec_cmd(char *cmd, size_t len)
 			if (host == NULL)
 				goto error;
 			host[0] = '\0';
-			if (sscanf(lcmd, "atdt%[^:]:%d%n", host, &port,
+			if (sscanf(lcmd, "atdt%[^:]:%hu%n", host, &port,
 			    &chars) == 2 && chars > 0)
 				/* matched host:port */
 				;
@@ -248,7 +248,7 @@ exec_cmd(char *cmd, size_t len)
 
 			host[0] = '\0';
 
-			if (sscanf(bookmark, "%[^:]:%d%n", host, &port,
+			if (sscanf(bookmark, "%[^:]:%hu%n", host, &port,
 			    &chars) == 2 && chars > 0)
 				/* matched host:port */
 				;
