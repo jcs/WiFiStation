@@ -306,24 +306,24 @@ exec_cmd(char *cmd, size_t len)
 			outputf("Default WiFi SSID: %s\r\n",
 			    settings->wifi_ssid);
 			outputf("Current WiFi SSID: %s\r\n", WiFi.SSID());
-			outputf("WiFi Connected:    %s\r\n",
+			outputf("WiFi connected:    %s\r\n",
 			    WiFi.status() == WL_CONNECTED ? "yes" : "no");
 			if (WiFi.status() == WL_CONNECTED) {
-				outputf("IP Address:        %s\r\n",
+				outputf("IP address:        %s\r\n",
 				    WiFi.localIP().toString().c_str());
 				outputf("Gateway IP:        %s\r\n",
 				    WiFi.gatewayIP().toString().c_str());
-				outputf("DNS Server IP:     %s\r\n",
+				outputf("DNS server IP:     %s\r\n",
 				    WiFi.dnsIP().toString().c_str());
 			}
-			outputf("MailStation Alive: %s\r\n",
+			outputf("MailStation alive: %s\r\n",
 			    mailstation_alive ? "yes" : "no");
-			outputf("HTTP Server:       %s\r\n",
+			outputf("HTTP server:       %s\r\n",
 			    settings->http_server ? "yes" : "no");
 			for (int i = 0; i < NUM_BOOKMARKS; i++) {
 				if (settings->bookmarks[i][0] != '\0')
-					outputf("Bookmark %d:	%s\r\n", i + 1,
-					    settings->bookmarks[i]);
+					outputf("ATDS bookmark %d:   %s\r\n",
+					    i + 1, settings->bookmarks[i]);
 			}
 			output("OK\r\n");
 			break;
