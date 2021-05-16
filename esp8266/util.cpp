@@ -27,6 +27,9 @@ setup(void)
 {
 	uint16_t v;
 
+	static_assert(sizeof(struct eeprom_data) < EEPROM_SIZE,
+	    "EEPROM_SIZE is not large enough to hold struct eeprom_data");
+
 	EEPROM.begin(EEPROM_SIZE);
 	settings = (struct eeprom_data *)EEPROM.getDataPtr();
 	if (memcmp(settings->magic, EEPROM_MAGIC_BYTES,
