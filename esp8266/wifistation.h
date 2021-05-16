@@ -26,7 +26,7 @@
 
 #define EEPROM_SIZE		512
 struct __attribute((__packed__)) eeprom_data {
-	char magic[3]; /* "jcs" */
+	char magic[3];
 #define EEPROM_MAGIC_BYTES	"jcs"
 	uint8_t revision;
 #define EEPROM_REVISION		3

@@ -211,14 +211,14 @@ exec_cmd(char *cmd, size_t len)
 			goto error;
 
 		switch (lcmd[3]) {
-		/* ATDT: dial a host */
 		case 't':
+			/* ATDT: dial a host */
 			host = ohost = (char *)malloc(len);
 			if (host == NULL)
 				goto error;
 			host[0] = '\0';
-			if (sscanf(lcmd, "atdt%[^:]:%d%n", host, &port, &chars)
-			    == 2 && chars > 0)
+			if (sscanf(lcmd, "atdt%[^:]:%d%n", host, &port,
+			    &chars) == 2 && chars > 0)
 				/* matched host:port */
 				;
 			else if (sscanf(lcmd, "atdt%[^:]%n", host, &chars) == 1
@@ -230,8 +230,8 @@ exec_cmd(char *cmd, size_t len)
 				goto error;
 			}
 			break;
-		/* ATDS: dial a stored host */
 		case 's':
+			/* ATDS: dial a stored host */
 			if (sscanf(lcmd, "atds%d", &index) != 1)
 				goto error;
 
@@ -240,7 +240,7 @@ exec_cmd(char *cmd, size_t len)
 				goto error;
 			}
 
-			bookmark = settings->bookmarks[index-1];
+			bookmark = settings->bookmarks[index - 1];
 
 			host = ohost = (char *)malloc(BOOKMARK_SIZE);
 			if (host == NULL)
@@ -248,8 +248,8 @@ exec_cmd(char *cmd, size_t len)
 
 			host[0] = '\0';
 
-			if (sscanf(bookmark, "%[^:]:%d%n", host, &port, &chars)
-			    == 2 && chars > 0)
+			if (sscanf(bookmark, "%[^:]:%d%n", host, &port,
+			    &chars) == 2 && chars > 0)
 				/* matched host:port */
 				;
 			else if (sscanf(bookmark, "%[^:]%n", host, &chars) == 1
@@ -322,7 +322,7 @@ exec_cmd(char *cmd, size_t len)
 			    settings->http_server ? "yes" : "no");
 			for (int i = 0; i < NUM_BOOKMARKS; i++) {
 				if (settings->bookmarks[i][0] != '\0')
-					outputf("Bookmark %d:	%s\r\n", i+1,
+					outputf("Bookmark %d:	%s\r\n", i + 1,
 					    settings->bookmarks[i]);
 			}
 			output("OK\r\n");
@@ -675,16 +675,17 @@ exec_cmd(char *cmd, size_t len)
 
 		switch (lcmd[3]) {
 		case 'w':
+			/* AT&W: save settings */
 			if (len != 4)
 				goto error;
 
-			/* AT&W: save settings */
 			if (!EEPROM.commit())
 				goto error;
 
 			output("OK\r\n");
 			break;
 		case 'z': {
+			/* AT&Z: manage bookmarks */
 			uint32_t index = 0;
 			uint8_t query;
 			int chars = 0;
@@ -693,8 +694,8 @@ exec_cmd(char *cmd, size_t len)
 			    chars > 0) {
 				/* AT&Zn=...: store address */
 				query = 0;
-			} else if (sscanf(lcmd, "at&z%u?%n", &index, &chars)
-			    == 1 && chars > 0) {
+			} else if (sscanf(lcmd, "at&z%u?%n", &index,
+			    &chars) == 1 && chars > 0) {
 				/* AT&Zn?: query stored address */
 				query = 1;
 			} else {
@@ -709,11 +710,11 @@ exec_cmd(char *cmd, size_t len)
 
 			if (query) {
 				outputf("%s\r\nOK\r\n",
-				    settings->bookmarks[index-1]);
+				    settings->bookmarks[index - 1]);
 			} else {
-				memset(settings->bookmarks[index-1], 0,
+				memset(settings->bookmarks[index - 1], 0,
 				    sizeof(settings->bookmarks[0]));
-				strncpy(settings->bookmarks[index-1],
+				strncpy(settings->bookmarks[index - 1],
 				    cmd + 6,
 				    sizeof(settings->bookmarks[0]) - 1);
 				output("OK\r\n");

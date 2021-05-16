@@ -37,7 +37,8 @@ setup(void)
 			settings->http_server = 0;
 			/* FALLTHROUGH */
 		case 2:
-			memset(settings->bookmarks, 0, BOOKMARK_SIZE * NUM_BOOKMARKS);
+			memset(settings->bookmarks, 0,
+			    BOOKMARK_SIZE * NUM_BOOKMARKS);
 			strcpy(settings->bookmarks[0], "klud.ge");
 		}
 
