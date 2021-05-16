@@ -29,7 +29,7 @@ struct __attribute((__packed__)) eeprom_data {
 	char magic[3]; /* "jcs" */
 #define EEPROM_MAGIC_BYTES	"jcs"
 	uint8_t revision;
-#define EEPROM_REVISION		2
+#define EEPROM_REVISION		3
 	char wifi_ssid[64];
 	char wifi_pass[64];
 	uint32_t baud;
@@ -38,6 +38,9 @@ struct __attribute((__packed__)) eeprom_data {
 	uint8_t telnet_tts_h;
 	uint8_t telnet;
 	uint8_t http_server;
+#define BOOKMARK_SIZE 64
+#define NUM_BOOKMARKS 3
+	char bookmarks[NUM_BOOKMARKS][BOOKMARK_SIZE];
 };
 
 extern struct eeprom_data *settings;
