@@ -22,6 +22,7 @@
 
 	; locations relative to v2.54 firmware
 	.equ	p2shadow,		#0xdba2
+	.equ	delay_func,		#0x0a5c
 
 	; which page (Yahoo! menu slot) to save an uploaded program to
 	; page 0 is 0x0000, page 1 0x4000, page 2, 0x8000, etc.
@@ -113,6 +114,16 @@ write_p2:
 	ei
 	ret
 
+delay:
+	push	af
+	push	bc
+	push	hl
+	call	#delay_func
+	pop	hl
+	pop	bc
+	pop	af
+	ret
+
 ; get transfer size bytes, then read a flash sector into ram, write it, repeat
 main:
 	push	ix
@@ -121,6 +132,16 @@ main:
 	push	bc
 	push	de
 	push	hl
+	ld	hl, #5000
+	push	hl
+	call	delay			; wait 5 seconds before starting in
+	pop	hl			;  case wifistation is rebooting
+	ld	a, #CONTROL_DIR_OUT
+	out	(#CONTROL_DIR), a
+	xor	a
+	out	(#CONTROL_PORT), a
+	ld	a, #DATA_DIR_IN
+	out	(#DATA_DIR), a		; we're going to be receiving
 	ld	a, #1			; enable 'new mail' light
 	call	new_mail
 	ld	hl, #-8			; stack bytes for local storage
