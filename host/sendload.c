@@ -108,7 +108,7 @@ main(int argc, char *argv[])
 	struct stat sb;
 	struct pollfd pfd[1];
 	char *fn, *serial_dev = NULL;
-	char buf[128], b, cksum = 0, rcksum;
+	unsigned char buf[128], b, cksum = 0, rcksum;
 	unsigned int sent = 0, size = 0;
 	int len, rlen, ch;
 	int serial_speed = B115200;
@@ -187,7 +187,7 @@ main(int argc, char *argv[])
 	}
 
 	len = 0;
-	if (sscanf(buf, "AT$UPLOAD %d\r\nOK%n", &len, &len) != 1 || len < 10) {
+	if (sscanf(buf, "AT$UPLOAD %d\r\nOK%n", &rlen, &len) != 1 || len < 10) {
 		strvis(vbuf, buf, VIS_NL | VIS_CSTYLE | VIS_OCTAL);
 		errx(1, "bad response to AT$UPLOAD: %s", vbuf);
 	}
@@ -200,21 +200,40 @@ main(int argc, char *argv[])
 
 	while (sent < size) {
 		b = fgetc(pFile);
-		write(serial_fd, &b, 1);
+		if (debug)
+			printf("sending: %05d/%05d (0x%x)\n", sent, size, b);
+		serial_write(&b, 1);
 		cksum ^= b;
 		sent++;
 
 		if (sent % 32 == 0 || sent == size) {
-			if (poll(pfd, 1, 100) < 1 ||
-			    read(serial_fd, &rcksum, 1) != 1 || rcksum != cksum) {
+			if (poll(pfd, 1, 1000) < 1) {
+				printf("\n");
+				errx(1, "failed poll at byte %d/%d", sent,
+				    size);
+			}
+
+			if (serial_read(&rcksum, 1) != 1) {
+				printf("\n");
+				errx(1, "failed read at byte %d/%d", sent,
+				    size);
+			}
+
+			if (rcksum == cksum) {
+				if (debug)
+					printf("checksum 0x%x matches\n",
+					    (cksum & 0xff));
+			} else {
 				printf("\n");
 				errx(1, "failed checksum of byte %d/%d "
 				    "(expected 0x%x, received 0x%x)",
-				    sent, size, cksum & 0xff, rcksum & 0xff);
+				    sent, size, cksum, rcksum);
 			}
 		}
 
-		printf("\rsent: %05d/%05d", sent, size);
+		if (!debug)
+			printf("\rsent: %05d/%05d", sent, size);
+
 		fflush(stdout);
 	}
 	fclose(pFile);
