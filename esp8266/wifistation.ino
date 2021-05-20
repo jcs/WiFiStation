@@ -110,7 +110,6 @@ loop(void)
 		b = -1;
 
 		if (mailstation_alive && (b = ms_read()) != -1) {
-			mailstation_alive = true;
 			if (b == '\e') {
 				/* probably a multi-character command */
 				String seq = String((char)b);
@@ -610,21 +609,31 @@ exec_cmd(char *cmd, size_t len)
 			    bytes < 1)
 				goto error;
 
-			if (bytes > MAX_UPLOAD_SIZE) {
+			if (bytes > (MAX_UPLOAD_SIZE - 1)) {
 				outputf("ERROR size cannot be larger than "
-				    "%d\r\n", MAX_UPLOAD_SIZE);
+				    "%d\r\n", (MAX_UPLOAD_SIZE - 1));
 				break;
 			}
 
 			/*
-			 * Assume it's now dead until we see it on the other
-			 * side of the upload
+			 * Prevent output() from sending data to the
+			 * MailStation until we see it on the other side of the
+			 * upload.
 			 */
 			mailstation_alive = false;
 
-			/* send low and high bytes of size */
-			if (ms_write(bytes & 0xff) != 0 ||
-			    ms_write((bytes >> 8) & 0xff) != 0) {
+			/*
+			 * Send low and high bytes of size.
+			 *
+			 * XXX: Tell the MailStation we're sending one more
+			 * byte than we're receiving from sendload so we can
+			 * include one trailing null byte because sometimes the
+			 * final ack of ms_write will fail to see ack line go
+			 * low before WSLoader jumps to the payload.
+			 * Figure out why that happens and remove this hack.
+			 */
+			if (ms_write((bytes + 1) & 0xff) != 0 ||
+			    ms_write(((bytes + 1) >> 8) & 0xff) != 0) {
 				output("ERROR MailStation failed to receive "
 				    "size\r\n");
 				break;
@@ -645,22 +654,24 @@ exec_cmd(char *cmd, size_t len)
 				}
 
 				b = Serial.read();
+				t = millis();
 
 				if (ms_write(b) != 0)
 					break;
 
 				cksum ^= b;
-
-				if (++written % 32 == 0)
-					output(cksum);
-
+				written++;
 				bytes--;
-				t = millis();
+
+				if (written % 32 == 0)
+					output(cksum);
 			}
 
 			if (bytes == 0) {
 				output(cksum);
 				output("\r\nOK good luck\r\n");
+				/* XXX: trailing dummy byte, ignore response */
+				ms_write(0);
 			} else
 				outputf("\r\nERROR MailStation failed to "
 				    "receive byte with %d byte%s left\r\n",
