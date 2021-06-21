@@ -22,6 +22,8 @@ struct eeprom_data *settings;
 bool serial_alive = true;
 bool mailstation_alive = false;
 
+#define BOOKMARK_0	"klud.ge"
+
 void
 setup(void)
 {
@@ -40,7 +42,7 @@ setup(void)
 		case 2:
 			memset(settings->bookmarks, 0,
 			    BOOKMARK_SIZE * NUM_BOOKMARKS);
-			strcpy(settings->bookmarks[0], "klud.ge");
+			strcpy(settings->bookmarks[0], BOOKMARK_0);
 		}
 
 		if (settings->revision != EEPROM_REVISION) {
@@ -64,6 +66,10 @@ setup(void)
 		settings->telnet_tts_h = 15;
 
 		settings->http_server = 0;
+
+		memset(settings->bookmarks, 0,
+		    BOOKMARK_SIZE * NUM_BOOKMARKS);
+		strcpy(settings->bookmarks[0], BOOKMARK_0);
 
 		EEPROM.commit();
 	}
