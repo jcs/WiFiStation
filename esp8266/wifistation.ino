@@ -441,6 +441,7 @@ exec_cmd(char *cmd, size_t len)
 					case 3:
 						/* ^C */
 						done = 1;
+						break;
 					case 'd':
 						Serial.printf("data input\r\n");
 						ms_datadir(INPUT);
