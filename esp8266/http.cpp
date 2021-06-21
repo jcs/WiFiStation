@@ -131,8 +131,7 @@ http_setup(void)
 		return;
 	}
 
-	const char *headerkeys[] = { "Accept" };
-	http->collectHeaders(headerkeys, 1);
+	http->collectHeaders(F("Accept"));
 
 	http->on("/", HTTP_GET, []() {
 		http_send_result(200, false, R"END(
