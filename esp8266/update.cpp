@@ -96,7 +96,7 @@ update_https_get_body(const char *url, long expected_length)
 	}
 
 	if (status != 200) {
-		outputf("ERROR OTA fetch of %s failed with HTTP status %s\r\n",
+		outputf("ERROR OTA fetch of %s failed with HTTP status %d\r\n",
 		    url, status);
 		goto drain;
 	}
