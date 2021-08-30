@@ -78,7 +78,7 @@ update_https_get_body(const char *url, long expected_length)
 
 	/* read headers */
 	lines = 0;
-	while (client.connected()) {
+	while (client.connected() || client.available()) {
 		String line = client.readStringUntil('\n');
 
 		if (lines == 0)
@@ -87,9 +87,7 @@ update_https_get_body(const char *url, long expected_length)
 		else if (sscanf(line.c_str(), "Content-Length: %d%n",
 		    &tlength, &chars) == 1 && chars > 0) {
 			clength = tlength;
-		}
-
-		if (line == "\r")
+		} else if (line == "\r")
 			break;
 
 		lines++;
