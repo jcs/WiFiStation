@@ -105,7 +105,7 @@ telnet_connect(char *host, uint16_t port)
 	telnet_echoing = true;
 
 	if (settings->telnet) {
-		/* start by sending DO SUPPRESS GO AHEAD */
+		/* start by sending some options we support */
 		TELNET_DEBUG("%s: -> IAC DO SUPPRESS GO AHEAD\r\n", __func__);
 		telnet.printf("%c%c%c", IAC, DO, IAC_SGA);
 		TELNET_DEBUG("%s: -> IAC WILL TTYPE\r\n", __func__);
