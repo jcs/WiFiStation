@@ -11,10 +11,10 @@ clean:
 	for f in $(SUBDIRS); do $(MAKE) -C $$f clean; done
 
 flash_esp8266: esp8266
-	env UPLOAD_PORT=/dev/cuaU1 $(MAKE) -C esp8266 flash
+	env UPLOAD_PORT=/dev/cuaU0 $(MAKE) -C esp8266 flash
 
 release: all
-	cp -f esp8266/obj/wifistation_generic/wifistation.bin release/
+	cp -f esp8266/obj/wifistation_huzzah/wifistation.bin release/
 	cp -f mailstation/wsloader.bin release/
 	cp -f mailstation/flashloader.bin release/
 	echo $(VERSION) > release/version.txt
