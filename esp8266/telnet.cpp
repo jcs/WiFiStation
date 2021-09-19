@@ -44,6 +44,7 @@ bool telnet_echoing = true;
 #define IS		0	/* sub-negotiation */
 #define SEND		1	/* sub-negotiation */
 
+#define IAC_BINARY	0	/* Transmit Binary */
 #define IAC_ECHO	1	/* Echo Option */
 #define IAC_SGA		3	/* Suppress Go Ahead Option */
 #define IAC_STATUS	5	/* Status Option */
@@ -72,12 +73,14 @@ bool telnet_echoing = true;
 #define IAC_LINEMODE	34	/* Linemode Option */
 #define IAC_XDISPLOC	35	/* X Display Location Option */
 #define IAC_ENVIRON	36	/* Environment Option */
+#define IAC_AUTH	37	/* Authentication */
+#define IAC_ENCRYPT	38	/* Encryption Option */
 #define IAC_NEWENV	39	/* Environment Option */
 #define IAC_CHARSET	42	/* Charset Option */
 #define IAC_COMPORT	44	/* Com Port Control Option */
 
-#if DEBUG
-#define TELNET_DEBUG(...) { outputf(__VA_ARGS__) }
+#ifdef TELNET_TRACE
+#define TELNET_DEBUG(...) { outputf(__VA_ARGS__); }
 #else
 #define TELNET_DEBUG(...) {}
 #endif
@@ -100,6 +103,21 @@ telnet_connect(char *host, uint16_t port)
 
 	telnet_state = TELNET_STATE_CONNECTED;
 	telnet_echoing = true;
+
+	if (settings->telnet) {
+		/* start by sending DO SUPPRESS GO AHEAD */
+		TELNET_DEBUG("%s: -> IAC DO SUPPRESS GO AHEAD\r\n", __func__);
+		telnet.printf("%c%c%c", IAC, DO, IAC_SGA);
+		TELNET_DEBUG("%s: -> IAC WILL TTYPE\r\n", __func__);
+		telnet.printf("%c%c%c", IAC, WILL, IAC_TTYPE);
+		TELNET_DEBUG("%s: -> IAC WILL NAWS\r\n", __func__);
+		telnet.printf("%c%c%c", IAC, WILL, IAC_NAWS);
+		TELNET_DEBUG("%s: -> IAC WILL TSPEED\r\n", __func__);
+		telnet.printf("%c%c%c", IAC, WILL, IAC_TSPEED);
+		TELNET_DEBUG("%s: -> IAC DO STATUS\r\n", __func__);
+		telnet.printf("%c%c%c", IAC, DO, IAC_STATUS);
+	}
+
 	return 0;
 }
 
@@ -186,6 +204,53 @@ dump_sb:
 	TELNET_DEBUG("\r\n");
 }
 
+#ifdef TELNET_TRACE
+static char iac_name[16];
+char *
+telnet_iac_name(char iac)
+{
+	switch (iac) {
+	case IAC_ECHO:
+		sprintf(iac_name, "ECHO");
+		break;
+	case IAC_SGA:
+		sprintf(iac_name, "SGA");
+		break;
+	case IAC_STATUS:
+		sprintf(iac_name, "STATUS");
+		break;
+	case IAC_TTYPE:
+		sprintf(iac_name, "TTYPE");
+		break;
+	case IAC_NAWS:
+		sprintf(iac_name, "NAWS");
+		break;
+	case IAC_TSPEED:
+		sprintf(iac_name, "TSPEED");
+		break;
+	case IAC_ENCRYPT:
+		sprintf(iac_name, "ENCRYPT");
+		break;
+	case IAC_AUTH:
+		sprintf(iac_name, "AUTH");
+		break;
+	case IAC_XDISPLOC:
+		sprintf(iac_name, "XDISPLOC");
+		break;
+	case IAC_NEWENV:
+		sprintf(iac_name, "NEWENV");
+		break;
+	case IAC_ENVIRON:
+		sprintf(iac_name, "OLD ENVIRON");
+		break;
+	default:
+		sprintf(iac_name, "%d", iac);
+		break;
+	}
+	return iac_name;
+}
+#endif
+
 int
 telnet_read(void)
 {
@@ -251,49 +316,46 @@ telnet_read(void)
 			}
 		}
 		break;
-	case TELNET_STATE_IAC_WILL:
-		TELNET_DEBUG("telnet_read: IAC WILL %d\r\n", b);
+	case TELNET_STATE_IAC_WILL: {
+		TELNET_DEBUG("telnet_read: IAC WILL %s\r\n",
+		    telnet_iac_name(b));
 		switch (b) {
 		case IAC_ECHO:
 			TELNET_DEBUG("telnet_read: -> IAC DO ECHO\r\n");
 			telnet.printf("%c%c%c", IAC, DO, b);
 			break;
-		case IAC_TTYPE:
-			TELNET_DEBUG("telnet_read: -> IAC DO TTYPE\r\n");
-			telnet.printf("%c%c%c", IAC, DO, b);
-			break;
-		case IAC_NAWS:
-			TELNET_DEBUG("telnet_read: -> IAC DO NAWS\r\n");
-			telnet.printf("%c%c%c", IAC, DO, b);
-			break;
-		case IAC_TSPEED:
-			TELNET_DEBUG("telnet_read: -> IAC DO TSPEED\r\n");
+		case IAC_SGA:
+			TELNET_DEBUG("telnet_read: -> IAC DO SGA\r\n");
 			telnet.printf("%c%c%c", IAC, DO, b);
 			break;
 		default:
-			TELNET_DEBUG("telnet_read: -> IAC WONT %d\r\n", b);
-			telnet.printf("%c%c%c", IAC, WONT, b);
+			TELNET_DEBUG("telnet_read: -> IAC DONT %s\r\n",
+			    telnet_iac_name(b));
+			telnet.printf("%c%c%c", IAC, DONT, b);
 			break;
 		}
 		telnet_state = TELNET_STATE_CONNECTED;
 		break;
+	}
 	case TELNET_STATE_IAC_DO:
+		TELNET_DEBUG("telnet_read: IAC DO %s\r\n", telnet_iac_name(b));
 		switch (b) {
+		case IAC_BINARY:
+			TELNET_DEBUG("telnet_read: -> IAC WILL %s\r\n",
+			    telnet_iac_name(b));
+			telnet.printf("%c%c%c", IAC, WILL, b);
+			break;
 		case IAC_TTYPE:
-			TELNET_DEBUG("telnet_read: -> IAC WILL TTYPE\r\n");
-			telnet.printf("%c%c%c", IAC, WILL, b);
-			break;
 		case IAC_NAWS:
-			TELNET_DEBUG("telnet_read: -> IAC WILL NAWS\r\n");
-			telnet.printf("%c%c%c", IAC, WILL, b);
-			break;
+		case IAC_TSPEED:
+			/* we support these but want them as SB */
+			/* FALLTHROUGH */
 		case IAC_LINEMODE:
 			/* refuse this, we want the server to handle input */
-			TELNET_DEBUG("telnet_read: -> IAC WONT LINEMODE\r\n");
-			telnet.printf("%c%c%c", IAC, WONT, b);
-			break;
+			/* FALLTHROUGH */
 		default:
-			TELNET_DEBUG("telnet_read: -> IAC WONT %d\r\n", b);
+			TELNET_DEBUG("telnet_read: -> IAC WONT %s\r\n",
+			    telnet_iac_name(b));
 			telnet.printf("%c%c%c", IAC, WONT, b);
 			break;
 		}
