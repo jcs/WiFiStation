@@ -30,3 +30,29 @@ connects to an
 over ~~I2C~~ SPI and has 12 of its GPIO lines (8 data, 2 input status, and 2
 output control) routed to pins on a DB25 connector, which plugs into the
 MailStation's printer port.
+
+## Compiling and Flashing esp8266 Firmware
+
+On macOS:
+
+Install Arduino GUI and esp8266 board info per
+[these instructions](https://github.com/esp8266/Arduino#installing-with-boards-manager).
+
+```
+$ git clone https://github.com/plerup/makeEspArduino
+$ git clone https://github.com/jcs/WiFiStation.git
+$ cd WiFiStation/esp8266
+WiFiStation/esp8266$ make
+- Parsing Arduino configuration files ...
+- Finding all involved files for the build ...
+[...]
+WiFiStation/esp8266$ make upload
+=== Using upload port: /dev/tty.usbserial-02331261 @ 115200
+esptool.py v3.0
+Serial port /dev/tty.usbserial-02331261
+Connecting....
+Chip is ESP8266EX
+Features: WiFi
+Crystal is 26MHz
+[...]
+```
