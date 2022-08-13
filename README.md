@@ -31,6 +31,9 @@ over ~~I2C~~ SPI and has 12 of its GPIO lines (8 data, 2 input status, and 2
 output control) routed to pins on a DB25 connector, which plugs into the
 MailStation's printer port.
 
+The full
+[BOM can be found here.](https://octopart.com/bom-tool/1wY3fCEg)
+
 ## Compiling and Flashing esp8266 Firmware
 
 On macOS:
