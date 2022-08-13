@@ -1,7 +1,7 @@
 SUBDIRS := esp8266 host mailstation
 
 DOWNLOAD_URL := "https://raw.githubusercontent.com/jcs/WiFiStation/main/release/wifistation.bin"
-VERSION := $(shell grep '#define WIFISTATION_VERSION' esp8266/wifistation.h | sed -e 's/"$$//' -e 's/.*"//')
+VERSION := $(shell grep 'define WIFISTATION_VERSION' esp8266/wifistation.h | sed 's/.*"\(.*\)"/\1/')
 
 all: $(SUBDIRS)
 $(SUBDIRS):
