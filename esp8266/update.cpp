@@ -15,18 +15,22 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <WiFiClient.h>
 #include <WiFiClientSecure.h>
 #include "wifistation.h"
 
-#define OTA_VERSION_URL "https://raw.githubusercontent.com/jcs/WiFiStation/main/release/version.txt"
+static const char OTA_VERSION_URL[] PROGMEM =
+	"https://raw.githubusercontent.com/jcs/WiFiStation/main/release/version.txt";
 
-WiFiClientSecure client;
+static WiFiClient client;
+static WiFiClientSecure client_tls;
+static bool tls = false;
 
 bool
 update_https_get_body(const char *url, long expected_length)
 {
-	char *host, *path;
-	int status, httpver, chars, lines, tlength, clength = -1;
+	char *host, *path, *colon;
+	int status = 0, port, httpver, chars, lines, tlength, clength = -1;
 
 	if (WiFi.status() != WL_CONNECTED) {
 		output("ERROR WiFi is not connected\r\n");
@@ -46,52 +50,83 @@ update_https_get_body(const char *url, long expected_length)
 		return false;
 	}
 
-	if (sscanf(url, "https://%[^/]%s%n", host, path, &chars) != 2 ||
-	    chars == 0) {
-		outputf("ERROR failed parsing URL %s\r\n", url);
+	if (sscanf(url, "http://%[^/]%s%n", host, path, &chars) == 2 &&
+	    chars != 0) {
+		tls = false;
+	} else if (sscanf(url, "https://%[^/]%s%n", host, path, &chars) == 2
+	    && chars != 0) {
+		tls = true;
+		/*
+		 * This would be nice to not have to do, but keeping up with
+		 * GitHub's TLS cert fingerprints will be tedious, and we have
+		 * no cert chain.
+		 */
+		client_tls.setInsecure();
+	} else {
+		outputf("ERROR failed parsing URL \"%s\"\r\n", url);
 		free(path);
 		free(host);
 		return false;
 	}
 
-	/*
-	 * This would be nice to not have to do, but keeping up with GitHub's
-	 * TLS cert fingerprints will be tedious, and we have no cert chain.
-	 */
-	client.setInsecure();
+	if ((colon = strchr(host, ':'))) {
+		colon[0] = '\0';
+		port = atoi(colon + 1);
+	} else {
+		port = (tls ? 443 : 80);
+	}
 
-	if (!client.connect(host, 443)) {
-		outputf("ERROR OTA failed connecting to %s:443\r\n", host);
+#ifdef UPDATE_TRACE
+	syslog.logf(LOG_DEBUG, "%s: host \"%s\" path \"%s\" port %d tls %d",
+	    __func__, host, path, port, tls ? 1 : 0);
+#endif
+
+	if (!(tls ? client_tls : client).connect(host, port)) {
+		outputf("ERROR OTA failed connecting to http%s://%s:%d\r\n",
+		    tls ? "s" : "", host, port);
 		free(path);
 		free(host);
 		return false;
-	 }
+	}
 
-	client.printf("GET %s HTTP/1.0\r\n", path);
-	client.printf("Host: %s\r\n", host);
-	client.printf("User-Agent: wifistation %s\r\n", WIFISTATION_VERSION);
-	client.printf("Connection: close\r\n");
-	client.printf("\r\n");
+	(tls ? client_tls : client).printf("GET %s HTTP/1.0\r\n", path);
+	(tls ? client_tls : client).printf("Host: %s\r\n", host);
+	(tls ? client_tls : client).printf("User-Agent: WiFiStation %s\r\n",
+	    WIFISTATION_VERSION);
+	(tls ? client_tls : client).printf("Connection: close\r\n");
+	(tls ? client_tls : client).printf("\r\n");
 
 	free(path);
 	free(host);
 
 	/* read headers */
 	lines = 0;
-	while (client.connected() || client.available()) {
-		String line = client.readStringUntil('\n');
+	while ((tls ? client_tls : client).connected() ||
+	    (tls ? client_tls : client).available()) {
+		String line = (tls ? client_tls : client).readStringUntil('\n');
+
+#ifdef UPDATE_TRACE
+		syslog.logf(LOG_DEBUG, "%s: read header \"%s\"", __func__,
+		    line.c_str());
+#endif
 
 		if (lines == 0)
 			sscanf(line.c_str(), "HTTP/1.%d %d%n", &httpver,
 			    &status, &chars);
 		else if (sscanf(line.c_str(), "Content-Length: %d%n",
-		    &tlength, &chars) == 1 && chars > 0) {
+		    &tlength, &chars) == 1 && chars > 0)
 			clength = tlength;
-		} else if (line == "\r")
+		else if (line == "\r") {
 			break;
+		}
 
 		lines++;
 	}
+
+#ifdef UPDATE_TRACE
+	syslog.logf(LOG_DEBUG, "%s: read status %d, content-length %d vs "
+	    "expected %ld", __func__, status, clength, expected_length);
+#endif
 
 	if (status != 200) {
 		outputf("ERROR OTA fetch of %s failed with HTTP status %d\r\n",
@@ -108,24 +143,52 @@ update_https_get_body(const char *url, long expected_length)
 	return true;
 
 drain:
-	while (client.available())
-		client.read();
-	client.stop();
+#ifdef UPDATE_TRACE
+	syslog.logf(LOG_DEBUG, "%s: draining remaining body", __func__);
+#endif
+	while ((tls ? client_tls : client).available())
+		(tls ? client_tls : client).read();
+	(tls ? client_tls : client).stop();
 	return false;
 }
 
 void
-update_process(bool do_update, bool force)
+update_process(char *url, bool do_update, bool force)
 {
-	String url, md5, version;
-	int bytesize = 0, lines = 0;
+	String rom_url, md5, version;
+	int bytesize = 0, lines = 0, len;
+	char *furl = NULL;
 
-	if (!update_https_get_body(OTA_VERSION_URL, 0))
+	if (url == NULL) {
+		furl = url = (char *)malloc(len = (strlen_P(OTA_VERSION_URL) +
+		    1));
+		if (url == NULL) {
+			output("ERROR malloc failed\r\n");
+			return;
+		}
+		memcpy_P(url, OTA_VERSION_URL, len);
+	}
+
+#ifdef UPDATE_TRACE
+	syslog.logf(LOG_DEBUG, "processing update from \"%s\"", url);
+#endif
+
+	if (!update_https_get_body(url, 0)) {
+		if (furl)
+			free(furl);
 		return;
+	}
+	if (furl)
+		free(furl);
 
 	lines = 0;
-	while (client.available()) {
-		String line = client.readStringUntil('\n');
+	while ((tls ? client_tls : client).available()) {
+		String line = (tls ? client_tls : client).readStringUntil('\n');
+
+#ifdef UPDATE_TRACE
+		syslog.logf(LOG_DEBUG, "%s: read body[%d] \"%s\"", __func__,
+		    lines, line.c_str());
+#endif
 
 		switch (lines) {
 		case 0:
@@ -138,7 +201,7 @@ update_process(bool do_update, bool force)
 			md5 = line;
 			break;
 		case 3:
-			url = line;
+			rom_url = line;
 			break;
 		default:
 #if DEBUG
@@ -151,7 +214,7 @@ update_process(bool do_update, bool force)
 		lines++;
 	}
 
-	client.stop();
+	(tls ? client_tls : client).stop();
 
 	if (version == WIFISTATION_VERSION && !force) {
 		outputf("ERROR OTA server reports version %s, no update "
@@ -163,24 +226,31 @@ update_process(bool do_update, bool force)
 		return;
 	}
 
-	/* doing an update, parse the url */
-
-	if (!update_https_get_body((char *)url.c_str(), bytesize))
+	/* doing an update, parse the url read */
+#ifdef UPDATE_TRACE
+	syslog.logf(LOG_DEBUG, "%s: doing update with ROM url \"%s\" size %d",
+	    __func__, rom_url.c_str(), bytesize);
+#endif
+	if (!update_https_get_body((char *)rom_url.c_str(), bytesize))
 		return;
 
 	outputf("Updating to version %s (%d bytes) from %s\r\n",
-	    version.c_str(), bytesize, (char *)url.c_str());
+	    version.c_str(), bytesize, (char *)rom_url.c_str());
 
-	Update.begin(bytesize, U_FLASH, pRedLED);
+	Update.begin(bytesize, U_FLASH, -1);
 
 	Update.setMD5(md5.c_str());
 
 	Update.onProgress([](unsigned int progress, unsigned int total) {
-		outputf("\rFlash update progress: % 6u of % 6u", progress,
+		/*
+		 * Just force serial output here rather than using outputf,
+		 * don't let it block us.
+		 */
+		Serial.printf("\rFlash update progress: % 6d of % 6d", progress,
 		    total);
 	});
 
-	if ((int)Update.writeStream(client) != bytesize) {
+	if ((int)Update.writeStream((tls ? client_tls : client)) != bytesize) {
 		if (Update.getError() == UPDATE_ERROR_BOOTSTRAP)
 			outputf("ERROR update must be done from fresh "
 			    "reset, not from uploaded code\r\n");
@@ -188,10 +258,10 @@ update_process(bool do_update, bool force)
 			outputf("ERROR failed writing download bytes: %d\r\n",
 			    Update.getError());
 
-		while (client.available())
-			client.read();
+		while ((tls ? client_tls : client).available())
+			(tls ? client_tls : client).read();
 
-		client.stop();
+		(tls ? client_tls : client).stop();
 		return;
 	}
 
@@ -201,7 +271,7 @@ update_process(bool do_update, bool force)
 		return;
 	}
 
-	client.stop();
+	(tls ? client_tls : client).stop();
 	outputf("\r\nOK update completed, restarting\r\n");
 
 	delay(500);

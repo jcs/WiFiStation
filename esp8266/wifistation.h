@@ -21,6 +21,8 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
+#include <Syslog.h>
+#include <WiFiUdp.h>
 
 #define WIFISTATION_VERSION	"0.7"
 
@@ -41,9 +43,11 @@ struct __attribute((__packed__)) eeprom_data {
 #define BOOKMARK_SIZE 64
 #define NUM_BOOKMARKS 3
 	char bookmarks[NUM_BOOKMARKS][BOOKMARK_SIZE];
+	char syslog_server[64];
 };
 
 extern struct eeprom_data *settings;
+extern Syslog syslog;
 
 #define MAX_UPLOAD_SIZE (16 * 1024)
 
@@ -57,6 +61,7 @@ extern bool serial_alive;
 extern bool mailstation_alive;
 
 /* util.cpp */
+void syslog_setup(void);
 void led_setup(void);
 void led_reset(void);
 void error_flash(void);
@@ -100,6 +105,6 @@ void http_setup(void);
 void http_process(void);
 
 /* update.cpp */
-void update_process(bool do_update, bool force);
+void update_process(char *, bool, bool);
 
 #endif

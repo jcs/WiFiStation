@@ -182,6 +182,10 @@ exec_cmd(char *cmd, size_t len)
 		return;
 	}
 
+#ifdef AT_TRACE
+	syslog.logf(LOG_DEBUG, "%s: parsing \"%s\"", __func__, cmd);
+#endif
+
 	for (size_t i = 0; i < len; i++)
 		lcmd[i] = tolower(cmd[i]);
 	lcmd[len] = '\0';
@@ -324,6 +328,9 @@ exec_cmd(char *cmd, size_t len)
 					outputf("ATDS bookmark %d:   %s\r\n",
 					    i + 1, settings->bookmarks[i]);
 			}
+			outputf("Syslog server:     %s\r\n",
+			    settings->syslog_server);
+
 			output("OK\r\n");
 			break;
 		case '1': {
@@ -557,6 +564,20 @@ exec_cmd(char *cmd, size_t len)
 		} else if (strcmp(lcmd, "at$ssid?") == 0) {
 			/* AT$SSID?: print wifi ssid */
 			outputf("%s\r\nOK\r\n", settings->wifi_ssid);
+		} else if (strncmp(lcmd, "at$syslog=", 10) == 0) {
+			/* AT$SYSLOG=...: set syslog server */
+			memset(settings->syslog_server, 0,
+			    sizeof(settings->syslog_server));
+			strncpy(settings->syslog_server, cmd + 10,
+			    sizeof(settings->syslog_server));
+			syslog_setup();
+			syslog.logf(LOG_INFO, "syslog server changed to %s",
+			    settings->syslog_server);
+			output("OK\r\n");
+		} else if (strcmp(lcmd, "at$syslog?") == 0) {
+			/* AT$SYSLOG?: print syslog server */
+			outputf("%s\r\n", settings->syslog_server);
+			output("OK\r\n");
 		} else if (strncmp(lcmd, "at$tts=", 7) == 0) {
 			/* AT$TTS=: set telnet NAWS */
 			int w, h, chars;
@@ -592,15 +613,25 @@ exec_cmd(char *cmd, size_t len)
 		} else if (strcmp(lcmd, "at$tty?") == 0) {
 			/* AT$TTY?: show telnet TTYPE setting */
 			outputf("%s\r\nOK\r\n", settings->telnet_tterm);
-		} else if (strcmp(lcmd, "at$update?") == 0) {
+		} else if (strncmp(lcmd, "at$update?", 10) == 0) {
 			/* AT$UPDATE?: show whether an OTA update is available */
-			update_process(false, false);
-		} else if (strcmp(lcmd, "at$update!") == 0) {
+			char *url = NULL;
+			if (strncmp(lcmd, "at$update? http", 15) == 0)
+				url = lcmd + 11;
+			update_process(url, false, false);
+		} else if (strncmp(lcmd, "at$update!", 10) == 0) {
 			/* AT$UPDATE!: force an OTA update */
-			update_process(true, true);
-		} else if (strcmp(lcmd, "at$update") == 0) {
+			char *url = NULL;
+			if (strncmp(lcmd, "at$update! http", 15) == 0)
+				url = lcmd + 11;
+			update_process(url, true, true);
+		} else if (strcmp(lcmd, "at$update") == 0 ||
+		    strncmp(lcmd, "at$update http", 14) == 0) {
 			/* AT$UPDATE: do an OTA update */
-			update_process(true, false);
+			char *url = NULL;
+			if (strncmp(lcmd, "at$update http", 14) == 0)
+				url = lcmd + 10;
+			update_process(url, true, false);
 		} else if (strncmp(lcmd, "at$upload", 9) == 0) {
 			/* AT$UPLOAD: mailstation program loader */
 			unsigned int bytes = 0;

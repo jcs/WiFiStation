@@ -19,6 +19,9 @@
 
 struct eeprom_data *settings;
 
+WiFiUDP syslogUDPClient;
+Syslog syslog(syslogUDPClient, SYSLOG_PROTO_BSD);
+
 bool serial_alive = true;
 bool mailstation_alive = false;
 
@@ -74,6 +77,8 @@ setup(void)
 		EEPROM.commit();
 	}
 
+	syslog_setup();
+
 	Serial.begin(settings->baud);
 	delay(1000);
 
@@ -90,6 +95,17 @@ setup(void)
 		WiFi.begin(settings->wifi_ssid, settings->wifi_pass);
 
 	http_setup();
+}
+
+void
+syslog_setup(void)
+{
+	if (settings->syslog_server[0])
+		syslog.server(settings->syslog_server, 514);
+	else
+		syslog.server(NULL, 514);
+
+	syslog.appName("WiFiStation");
 }
 
 void
@@ -169,6 +185,10 @@ int
 output(const char *str)
 {
 	size_t len = strlen(str);
+
+#ifdef OUTPUT_TRACE
+	syslog.logf(LOG_DEBUG, "output: \"%s\"", str);
+#endif
 
 	for (size_t i = 0; i < len; i++)
 		output(str[i]);
