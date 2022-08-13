@@ -26,6 +26,11 @@
 
 #define WIFISTATION_VERSION	"0.7"
 
+/* enable various debugging */
+// #define TELNET_TRACE
+// #define OUTPUT_TRACE
+// #define UPDATE_TRACE
+
 #define EEPROM_SIZE		512
 struct __attribute((__packed__)) eeprom_data {
 	char magic[3];
