@@ -5,6 +5,13 @@ SDCC	?= sdcc -mz80
 
 CFLAGS	+= -Wall
 
+UNAME_S := $(shell uname -s)
+
+OBJCOPY	?= objcopy
+ifeq ($(UNAME_S),Darwin)
+OBJCOPY = /opt/homebrew/Cellar/llvm/*/bin/llvm-objcopy
+endif
+
 all: wsloader.bin flashloader.bin
 
 clean:
@@ -18,7 +25,7 @@ wsloader.ihx: wsloader.rel
 	$(SDCC) --no-std-crt0 -o $@ $<
 
 wsloader.bin: wsloader.ihx
-	objcopy -Iihex -Obinary $< $@
+	$(OBJCOPY) -Iihex -Obinary $< $@
 	hexdump -C $@
 
 # dataflash loader
@@ -29,4 +36,4 @@ flashloader.ihx: flashloader.rel
 	$(SDCC) --no-std-crt0 -o $@ $<
 
 flashloader.bin: flashloader.ihx
-	objcopy -Iihex -Obinary $< $@
+	$(OBJCOPY) -Iihex -Obinary $< $@
