@@ -50,6 +50,7 @@ setup(void)
 		case 3:
 			settings->echo = 1;
 			settings->quiet = 0;
+			settings->verbal = 1;
 		}
 
 		if (settings->revision != EEPROM_REVISION) {
@@ -76,6 +77,7 @@ setup(void)
 
 		settings->echo = 1;
 		settings->quiet = 0;
+		settings->verbal = 1;
 
 		memset(settings->bookmarks, 0,
 		    BOOKMARK_SIZE * NUM_BOOKMARKS);

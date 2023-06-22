@@ -46,6 +46,7 @@ struct __attribute((__packed__)) eeprom_data {
 	char syslog_server[64];
 	uint8_t echo;
 	uint8_t quiet;
+	uint8_t verbal;
 };
 
 extern struct eeprom_data *settings;

@@ -15,6 +15,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+/*
+ * Useful AT command sets to emulate:
+ *
+ * USRobotics Courier 56K Business Modem
+ * http://web.archive.org/web/20161116174421/http://support.usr.com/support/3453c/3453c-ug/alphabetic.html
+ *
+ * Xecom XE3314L
+ * http://web.archive.org/web/20210816224031/http://static6.arrow.com/aropdfconversion/63e466a4e0c7e004c40f79e4dbe4c1356a3dcef6/xe3314l.pdf
+ */
+
 #include "wifistation.h"
 #include "MCP23S18.h"
 
@@ -133,8 +143,12 @@ loop(void)
 			/* received no input within 500ms of a plus */
 			if (plusses >= 3) {
 				state = STATE_AT;
-				if (!settings->quiet)
-					outputf("\r\nOK\r\n");
+				if (!settings->quiet) {
+					if (settings->verbal)
+						output("\nOK\r\n");
+					else
+						output("0\r");
+				}
 			} else {
 				/* cancel, flush any plus signs received */
 				for (i = 0; i < plusses; i++)
@@ -166,8 +180,12 @@ loop(void)
 				Serial.write(b);
 			return;
 		} else if (!telnet_connected()) {
-			if (!settings->quiet)
-				output("\r\nNO CARRIER\r\n");
+			if (!settings->quiet) {
+				if (settings->verbal)
+					output("\r\nNO CARRIER\r\n");
+				else
+					output("3\r");
+			}
 			state = STATE_AT;
 			break;
 		}
@@ -187,7 +205,10 @@ exec_cmd(char *cmd, size_t len)
 
 	lcmd = olcmd = (char *)malloc(len + 1);
 	if (lcmd == NULL) {
-		outputf("ERROR malloc %zu failed\r\n", len);
+		if (settings->verbal)
+			outputf("ERROR malloc %zu failed\r\n", len);
+		else
+			output("4\r");
 		return;
 	}
 
@@ -311,16 +332,24 @@ parse_cmd:
 			goto error;
 		}
 
-		if (!settings->quiet)
+		if (!settings->quiet && settings->verbal)
 			outputf("\nDIALING %s:%d\r\n", host, port);
 
 		if (telnet_connect(host, port) == 0) {
-			if (!settings->quiet)
-				outputf("CONNECT %d %s:%d\r\n",
-				    settings->baud, host, port);
+			if (!settings->quiet) {
+				if (settings->verbal)
+					outputf("CONNECT %d %s:%d\r\n",
+					    settings->baud, host, port);
+				else
+					output("18\r"); /* 57600 */
+			}
 			state = STATE_TELNET;
-		} else if (!settings->quiet)
-			output("\nNO ANSWER\r\n");
+		} else if (!settings->quiet) {
+			if (settings->verbal)
+				output("\nNO ANSWER\r\n");
+			else
+				output("8\r");
+		}
 
 		did_nl = true;
 		free(ohost);
@@ -344,6 +373,7 @@ parse_cmd:
 		switch (cmd_num) {
 		case 0:
 			telnet_disconnect();
+			output("\r\n");
 			break;
 		default:
 			goto error;
@@ -353,7 +383,23 @@ parse_cmd:
 		/* ATI/ATI#: show information pages */
 		switch (cmd_num) {
 		case 0:
-			/* ATI/ATI0: show settings */
+		case 3:
+			/* ATI/ATI0/ATI3: show product name */
+			outputf("\njcs WiFiStation %s\r\n",
+			    WIFISTATION_VERSION);
+			did_nl = true;
+			break;
+		case 1:
+			/* ATI1: checksum of RAM (not used) */
+			output("\n1337\r\n");
+			did_nl = true;
+			break;
+		case 2:
+			/* ATI2: test RAM (not used) */
+			break;
+		case 4: {
+			/* ATI4: show settings */
+			ip4_addr_t t_addr;
 			output("\n");
 
 			outputf("Firmware version:  %s\r\n",
@@ -387,8 +433,9 @@ parse_cmd:
 			}
 			did_nl = true;
 			break;
-		case 1: {
-			/* ATI1: scan for wifi networks */
+		}
+		case 5: {
+			/* ATI5: scan for wifi networks */
 			int n = WiFi.scanNetworks();
 
 			output("\n");
@@ -426,11 +473,6 @@ parse_cmd:
 			did_nl = true;
 			break;
 		}
-		case 3:
-			/* ATI3: show version */
-			outputf("\n%s\r\n", WIFISTATION_VERSION);
-			did_nl = true;
-			break;
 		default:
 			goto error;
 		}
@@ -449,24 +491,45 @@ parse_cmd:
 		}
 		break;
 	case 'q':
-		/* ATQ/ATQ0 or ATQ1: disable or enable quiet */
+		/* ATQ/ATQ0 or ATQ1: enable or disable quiet */
 		switch (cmd_num) {
 		case 0:
 			settings->quiet = 0;
 			break;
 		case 1:
+		case 2:
 			settings->quiet = 1;
 			break;
 		default:
 			goto error;
 		}
 		break;
+	case 'v':
+		/* ATV/ATV0 or ATV1: enable or disable verbal responses */
+		switch (cmd_num) {
+		case 0:
+			settings->verbal = 0;
+			break;
+		case 1:
+			settings->verbal = 1;
+			break;
+		default:
+			goto error;
+		}
+		break;
+	case 'x':
+		/* ATX/ATX#: ignore dialtone, certain results (not used) */
+		break;
 	case 'z':
 		/* ATZ/ATZ0: restart */
 		switch (cmd_num) {
 		case 0:
-			if (!settings->quiet)
-				output("\nOK\r\n");
+			if (!settings->quiet) {
+				if (settings->verbal)
+					output("\nOK\r\n");
+				else
+					output("0\r");
+			}
 			ESP.restart();
 			/* NOTREACHED */
 		default:
@@ -602,7 +665,10 @@ parse_cmd:
 			/* AT$SB=...: set baud rate */
 			if (sscanf(lcmd, "sb=%d%n", &baud, &chars) != 1 ||
 		    	    chars == 0) {
-				output("ERROR invalid baud rate\r\n");
+				if (settings->verbal)
+					output("ERROR invalid baud rate\r\n");
+				else
+					output("4\r");
 				break;
 			}
 
@@ -618,9 +684,13 @@ parse_cmd:
 			case 57600:
 			case 115200:
 				settings->baud = baud;
-				if (!settings->quiet)
-					outputf("\nOK switching to %d\r\n",
-					    settings->baud);
+				if (!settings->quiet) {
+					if (settings->verbal)
+						outputf("\nOK switching to "
+						    "%d\r\n", settings->baud);
+					else
+						output("0\r");
+				}
 				Serial.flush();
 				Serial.begin(settings->baud);
 				break;
@@ -875,8 +945,12 @@ done_parsing:
 	if (olcmd)
 		free(olcmd);
 
-	if (!settings->quiet)
-		outputf("%sOK\r\n", did_nl ? "" : "\n");
+	if (state == STATE_AT && !settings->quiet) {
+		if (settings->verbal)
+			outputf("%sOK\r\n", did_nl ? "" : "\n");
+		else
+			output("0\r");
+	}
 
 	return;
 
@@ -885,11 +959,15 @@ error:
 		free(olcmd);
 
 	if (!settings->quiet) {
-		output("\nERROR");
-		if (errstr != NULL) {
-			outputf(" %s", errstr);
-			free(errstr);
-		}
-		output("\r\n");
+		if (settings->verbal) {
+			output("\nERROR");
+			if (errstr != NULL)
+				outputf(" %s", errstr);
+			output("\r\n");
+		} else
+			output("4\r");
 	}
+
+	if (errstr != NULL)
+		free(errstr);
 }
