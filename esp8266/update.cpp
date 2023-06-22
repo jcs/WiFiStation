@@ -176,10 +176,13 @@ update_process(char *url, bool do_update, bool force)
 	}
 
 #ifdef UPDATE_TRACE
-	syslog.logf(LOG_DEBUG, "processing update from \"%s\"", url);
+	syslog.logf(LOG_DEBUG, "fetching update manifest from \"%s\"", url);
 #endif
 
 	if (!update_http_get_body(url, 0)) {
+#ifdef UPDATE_TRACE
+		syslog.logf(LOG_DEBUG, "update_https_get_body(%s) failed", url);
+#endif
 		if (furl)
 			free(furl);
 		return;
@@ -210,9 +213,9 @@ update_process(char *url, bool do_update, bool force)
 			rom_url = line;
 			break;
 		default:
-#if DEBUG
-			outputf("OTA unexpected line %d: %s\r\n", lines + 1,
-			    line.c_str());
+#ifdef UPDATE_TRACE
+			syslog.logf("%s: unexpected line %d: %s\r\n", __func__,
+			    lines + 1, line.c_str());
 #endif
 			break;
 		}
