@@ -145,7 +145,7 @@ loop(void)
 				state = STATE_AT;
 				if (!settings->quiet) {
 					if (settings->verbal)
-						output("\nOK\r\n");
+						output("\r\nOK\r\n");
 					else
 						output("0\r");
 				}
