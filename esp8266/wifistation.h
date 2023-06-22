@@ -29,6 +29,7 @@
 /* enable various debugging */
 // #define AT_TRACE
 // #define OUTPUT_TRACE
+// #define UPDATE_TRACE
 
 #define EEPROM_SIZE		512
 struct __attribute((__packed__)) eeprom_data {
