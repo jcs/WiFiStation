@@ -193,6 +193,10 @@ output(const char *str)
 {
 	size_t len = strlen(str);
 
+#ifdef OUTPUT_TRACE
+	syslog.logf(LOG_DEBUG, "output: \"%s\"", str);
+#endif
+
 	for (size_t i = 0; i < len; i++)
 		output(str[i]);
 

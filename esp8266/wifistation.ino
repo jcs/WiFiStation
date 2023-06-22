@@ -213,6 +213,10 @@ exec_cmd(char *cmd, size_t len)
 		return;
 	}
 
+#ifdef AT_TRACE
+	syslog.logf(LOG_DEBUG, "%s: parsing \"%s\"", __func__, cmd);
+#endif
+
 	for (size_t i = 0; i < len; i++)
 		lcmd[i] = tolower(cmd[i]);
 	lcmd[len] = '\0';
@@ -252,6 +256,11 @@ parse_cmd:
 		cmd++;
 		lcmd++;
 	}
+
+#ifdef AT_TRACE
+	syslog.logf(LOG_DEBUG, "%s: parsing AT %c[%d] args \"%s\"", __func__,
+	    cmd_char, cmd_num, lcmd);
+#endif
 
 	switch (cmd_char) {
 	case 'd': {
