@@ -903,6 +903,8 @@ parse_cmd:
 			switch (cmd_num) {
 			case 0:
 				/* AT&W: save settings */
+				/* force setting dirty */
+				(void)EEPROM.getDataPtr();
 				if (!EEPROM.commit())
 					goto error;
 				break;
