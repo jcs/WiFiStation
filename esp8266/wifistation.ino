@@ -380,7 +380,6 @@ parse_cmd:
 		switch (cmd_num) {
 		case 0:
 			telnet_disconnect();
-			output("\r\n");
 			break;
 		default:
 			goto error;
