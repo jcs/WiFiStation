@@ -19,11 +19,11 @@
 
 struct eeprom_data *settings;
 
-WiFiUDP syslogUDPClient;
-Syslog syslog(syslogUDPClient, SYSLOG_PROTO_BSD);
-
 bool serial_alive = true;
 bool mailstation_alive = false;
+
+WiFiUDP syslogUDPClient;
+Syslog syslog(syslogUDPClient, SYSLOG_PROTO_BSD);
 
 #define BOOKMARK_0	"klud.ge"
 
@@ -46,6 +46,10 @@ setup(void)
 			memset(settings->bookmarks, 0,
 			    BOOKMARK_SIZE * NUM_BOOKMARKS);
 			strcpy(settings->bookmarks[0], BOOKMARK_0);
+			/* FALLTHROUGH */
+		case 3:
+			settings->echo = 1;
+			settings->quiet = 0;
 		}
 
 		if (settings->revision != EEPROM_REVISION) {
@@ -69,6 +73,9 @@ setup(void)
 		settings->telnet_tts_h = 15;
 
 		settings->http_server = 0;
+
+		settings->echo = 1;
+		settings->quiet = 0;
 
 		memset(settings->bookmarks, 0,
 		    BOOKMARK_SIZE * NUM_BOOKMARKS);
@@ -104,8 +111,6 @@ syslog_setup(void)
 		syslog.server(settings->syslog_server, 514);
 	else
 		syslog.server(NULL, 514);
-
-	syslog.appName("WiFiStation");
 }
 
 void
@@ -185,10 +190,6 @@ int
 output(const char *str)
 {
 	size_t len = strlen(str);
-
-#ifdef OUTPUT_TRACE
-	syslog.logf(LOG_DEBUG, "output: \"%s\"", str);
-#endif
 
 	for (size_t i = 0; i < len; i++)
 		output(str[i]);

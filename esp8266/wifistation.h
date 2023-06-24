@@ -24,19 +24,14 @@
 #include <Syslog.h>
 #include <WiFiUdp.h>
 
-#define WIFISTATION_VERSION	"0.8"
-
-/* enable various debugging */
-// #define TELNET_TRACE
-// #define OUTPUT_TRACE
-// #define UPDATE_TRACE
+#define WIFISTATION_VERSION	"0.7"
 
 #define EEPROM_SIZE		512
 struct __attribute((__packed__)) eeprom_data {
 	char magic[3];
 #define EEPROM_MAGIC_BYTES	"jcs"
 	uint8_t revision;
-#define EEPROM_REVISION		3
+#define EEPROM_REVISION		4
 	char wifi_ssid[64];
 	char wifi_pass[64];
 	uint32_t baud;
@@ -49,6 +44,8 @@ struct __attribute((__packed__)) eeprom_data {
 #define NUM_BOOKMARKS 3
 	char bookmarks[NUM_BOOKMARKS][BOOKMARK_SIZE];
 	char syslog_server[64];
+	uint8_t echo;
+	uint8_t quiet;
 };
 
 extern struct eeprom_data *settings;
@@ -110,6 +107,6 @@ void http_setup(void);
 void http_process(void);
 
 /* update.cpp */
-void update_process(char *, bool, bool);
+void update_process(bool do_update, bool force);
 
 #endif
