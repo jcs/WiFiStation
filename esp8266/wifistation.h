@@ -29,6 +29,7 @@
 /* enable various debugging */
 // #define AT_TRACE
 // #define OUTPUT_TRACE
+// #define TELNET_IAC_TRACE
 // #define UPDATE_TRACE
 
 #define EEPROM_SIZE		512

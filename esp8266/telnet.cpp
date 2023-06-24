@@ -245,7 +245,6 @@ telnet_send_ttype(void)
 void
 telnet_send_naws(void)
 {
-
 	TELNET_IAC_DEBUG("%s: -> IAC SB NAWS IS %dx%d IAC SE", __func__,
 	    settings->telnet_tts_w, settings->telnet_tts_h);
 
@@ -421,6 +420,8 @@ telnet_read(void)
 			telnet.printf("%c%c%c", IAC, WILL, b);
 			break;
 		case IAC_NAWS:
+			telnet_send_naws();
+			break;
 		case IAC_TSPEED:
 		case IAC_TTYPE:
 		case IAC_FLOWCTRL:
