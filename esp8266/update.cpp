@@ -191,7 +191,8 @@ update_process(char *url, bool do_update, bool force)
 		free(furl);
 
 	lines = 0;
-	while ((tls ? client_tls : client).available()) {
+	while ((tls ? client_tls : client).connected() ||
+	    (tls ? client_tls : client).available()) {
 		String line = (tls ? client_tls : client).readStringUntil('\n');
 
 #ifdef UPDATE_TRACE
@@ -256,12 +257,18 @@ update_process(char *url, bool do_update, bool force)
 	});
 
 	if ((int)Update.writeStream((tls ? client_tls : client)) != bytesize) {
-		if (Update.getError() == UPDATE_ERROR_BOOTSTRAP)
+		switch (Update.getError()) {
+		case UPDATE_ERROR_BOOTSTRAP:
 			outputf("\nERROR update must be done from fresh "
 			    "reset, not from uploaded code\r\n");
-		else
+			break;
+		case UPDATE_ERROR_MAGIC_BYTE:
+			outputf("\nERROR image does not start with 0xE9\r\n");
+			break;
+		default:
 			outputf("\nERROR failed writing download bytes: %d\r\n",
 			    Update.getError());
+		}
 
 		while ((tls ? client_tls : client).available())
 			(tls ? client_tls : client).read();
