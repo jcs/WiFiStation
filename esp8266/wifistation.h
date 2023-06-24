@@ -108,6 +108,6 @@ void http_setup(void);
 void http_process(void);
 
 /* update.cpp */
-void update_process(bool do_update, bool force);
+void update_process(char *, bool, bool);
 
 #endif

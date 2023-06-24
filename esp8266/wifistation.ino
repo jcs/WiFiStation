@@ -202,6 +202,7 @@ exec_cmd(char *cmd, size_t len)
 	char cmd_char;
 	uint8_t cmd_num = 0;
 	bool did_nl = false;
+	bool did_response = false;
 
 	lcmd = olcmd = (char *)malloc(len + 1);
 	if (lcmd == NULL) {
@@ -229,9 +230,6 @@ exec_cmd(char *cmd, size_t len)
 	cmd += 2;
 	lcmd += 2;
 	len -= 2;
-
-	/* whether we printed a newline in our response */
-	did_nl = false;
 
 parse_cmd:
 	if (lcmd[0] == '\0')
@@ -763,15 +761,28 @@ parse_cmd:
 		} else if (strcmp(lcmd, "at$tty?") == 0) {
 			/* AT$TTY?: show telnet TTYPE setting */
 			outputf("%s\r\nOK\r\n", settings->telnet_tterm);
-		} else if (strcmp(lcmd, "update?") == 0) {
+		} else if (strncmp(lcmd, "update?", 7) == 0) {
 			/* AT$UPDATE?: show whether an OTA update is available */
-			update_process(false, false);
-		} else if (strcmp(lcmd, "update!") == 0) {
+			char *url = NULL;
+			if (strncmp(lcmd, "update? http", 12) == 0)
+				url = lcmd + 8;
+			update_process(url, false, false);
+			did_response = true;
+		} else if (strncmp(lcmd, "update!", 7) == 0) {
 			/* AT$UPDATE!: force an OTA update */
-			update_process(true, true);
-		} else if (strcmp(lcmd, "update") == 0) {
+			char *url = NULL;
+			if (strncmp(lcmd, "update! http", 12) == 0)
+				url = lcmd + 8;
+			update_process(url, true, true);
+			did_response = true;
+		} else if (strcmp(lcmd, "update") == 0 ||
+		    strncmp(lcmd, "update http", 11) == 0) {
 			/* AT$UPDATE: do an OTA update */
-			update_process(true, false);
+			char *url = NULL;
+			if (strncmp(lcmd, "update http", 11) == 0)
+				url = lcmd + 7;
+			update_process(url, true, false);
+			did_response = true;
 		} else if (strncmp(lcmd, "upload", 6) == 0) {
 			/* AT$UPLOAD: mailstation program loader */
 			unsigned int bytes = 0;
@@ -945,7 +956,7 @@ done_parsing:
 	if (olcmd)
 		free(olcmd);
 
-	if (state == STATE_AT && !settings->quiet) {
+	if (!did_response && state == STATE_AT && !settings->quiet) {
 		if (settings->verbal)
 			outputf("%sOK\r\n", did_nl ? "" : "\n");
 		else
@@ -958,7 +969,7 @@ error:
 	if (olcmd)
 		free(olcmd);
 
-	if (!settings->quiet) {
+	if (!did_response && !settings->quiet) {
 		if (settings->verbal) {
 			output("\nERROR");
 			if (errstr != NULL)
