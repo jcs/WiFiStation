@@ -64,7 +64,7 @@ setup(void)
 		    sizeof(settings->magic));
 		settings->revision = EEPROM_REVISION;
 
-		settings->baud = 115200;
+		settings->baud = 9600;
 
 		settings->telnet = 1;
 		strlcpy(settings->telnet_tterm, "ansi",
