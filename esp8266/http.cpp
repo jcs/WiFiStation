@@ -162,10 +162,19 @@ the upload.
 	 * the same data.
 	 */
 	http->on("/upload", HTTP_POST, []() {
-		http_send_result(400, true, "Failed receiving file.");
+		char tmp[32];
+
+		if (upload_size == 0) {
+			http_send_result(400, true,
+			    "Failed receiving file (size 0).");
+		} else {
+			snprintf(tmp, sizeof(tmp), "/upload_measured?size=%d",
+			    upload_size);
+			http->sendHeader("Location", tmp);
+			http->send(307, "text/plain", "Ok, follow me!");
+		}
 	}, []() {
 		HTTPUpload& upload = http->upload();
-		char tmp[32];
 
 		switch (upload.status) {
 		case UPLOAD_FILE_START:
@@ -180,7 +189,7 @@ the upload.
 		case UPLOAD_FILE_END:
 			if (upload_size == 0) {
 				http_send_result(400, true,
-				    "Failed receiving file.");
+				    "Failed receiving file (size 0).");
 				return;
 			}
 
@@ -188,19 +197,18 @@ the upload.
 				http_send_result(400, true,
 				    "File upload cannot be larger than %d "
 				    "bytes.", MAX_UPLOAD_SIZE);
+				upload_size = 0;
 				return;
 			}
 
-			snprintf(tmp, sizeof(tmp), "/upload_measured?size=%d",
-			    upload_size);
-			http->sendHeader("Location", tmp);
-			http->send(307);
 			break;
 		}
 	});
 
 	http->on("/upload_measured", HTTP_POST, []() {
-		http_send_result(400, true, "Failed receiving file.");
+		http_send_result(200, true,
+		    "Successfully uploaded %d byte%s to MailStation.",
+		    delivered_bytes, delivered_bytes == 1 ? "" : "s");
 	}, []() {
 		HTTPUpload& upload = http->upload();
 
@@ -250,10 +258,7 @@ the upload.
 			}
 			break;
 		case UPLOAD_FILE_END:
-			http_send_result(200, true,
-			    "Successfully uploaded %d byte%s to MailStation.",
-			    delivered_bytes, delivered_bytes == 1 ? "" : "s");
-			return;
+			break;
 		case UPLOAD_FILE_ABORTED:
 			http_send_result(400, true,
 			    "Aborted upload to MailStation.");
