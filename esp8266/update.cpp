@@ -27,7 +27,7 @@ static WiFiClientSecure client_tls;
 static bool tls = false;
 
 bool
-update_http_get_body(const char *url, long expected_length)
+update_http_read_until_body(const char *url, long expected_length)
 {
 	char *host, *path, *colon;
 	int status = 0, port, httpver, chars, lines, tlength, clength = -1;
@@ -179,9 +179,9 @@ update_process(char *url, bool do_update, bool force)
 	syslog.logf(LOG_DEBUG, "fetching update manifest from \"%s\"", url);
 #endif
 
-	if (!update_http_get_body(url, 0)) {
+	if (!update_http_read_until_body(url, 0)) {
 #ifdef UPDATE_TRACE
-		syslog.logf(LOG_DEBUG, "update_https_get_body(%s) failed", url);
+		syslog.logf(LOG_DEBUG, "read until body(%s) failed", url);
 #endif
 		if (furl)
 			free(furl);
@@ -241,7 +241,7 @@ update_process(char *url, bool do_update, bool force)
 	syslog.logf(LOG_DEBUG, "%s: doing update with ROM url \"%s\" size %d",
 	    __func__, rom_url.c_str(), bytesize);
 #endif
-	if (!update_http_get_body((char *)rom_url.c_str(), bytesize))
+	if (!update_http_read_until_body((char *)rom_url.c_str(), bytesize))
 		return;
 
 	outputf("Updating to version %s (%d bytes) from %s\r\n",
