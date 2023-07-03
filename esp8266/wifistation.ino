@@ -40,12 +40,21 @@ static unsigned int lastcmdlen = 0;
 static uint8_t state = STATE_AT;
 static int plusses = 0;
 static unsigned long plus_wait = 0;
+static bool wifi_ever_connected = false;
 
 void
 loop(void)
 {
 	int b = -1, i;
 	long now = millis();
+
+	if (!wifi_ever_connected && WiFi.status() == WL_CONNECTED) {
+		rst_info *resetInfo = ESP.getResetInfoPtr();
+		syslog.logf(LOG_INFO, "connected, reset from %s (%d)",
+		    ESP.getResetReason().c_str(),
+		    (resetInfo == nullptr ? 0 : (*resetInfo).reason));
+		wifi_ever_connected = true;
+	}
 
 	http_process();
 
