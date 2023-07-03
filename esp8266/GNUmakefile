@@ -9,8 +9,6 @@ COMP_WARNINGS = -Wall -Wextra
 BUILD_ROOT =	$(CURDIR)/obj
 EXCLUDE_DIRS =	$(BUILD_ROOT)
 
-LIBS =		Syslog
-
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),OpenBSD)
 	ESP_ROOT =	/usr/local/share/arduino/hardware/espressif/esp8266
