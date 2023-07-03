@@ -95,6 +95,7 @@ setup(void)
 	ms_setup();
 	led_reset();
 
+	WiFi.persistent(false);
 	WiFi.mode(WIFI_STA);
 
 	/* don't require wifi_pass in case it's an open network */
