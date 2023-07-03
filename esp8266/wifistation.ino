@@ -288,9 +288,13 @@ parse_cmd:
 			if (host == NULL)
 				goto error;
 			host[0] = '\0';
-			if (sscanf(lcmd, "t%[^:]:%hu%n", host, &port,
+			if (sscanf(lcmd, "t%[^:]:%u%n", host, &port,
 			    &chars) == 2 && chars > 0)
 				/* matched host:port */
+				;
+			else if (sscanf(lcmd, "t%s %u%n", host, &port,
+			    &chars) == 2 && chars > 0)
+				/* matched host port */
 				;
 			else if (sscanf(lcmd, "t%[^:]%n", host, &chars) == 1
 			    && chars > 0)
