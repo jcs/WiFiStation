@@ -401,23 +401,8 @@ parse_cmd:
 	case 'i':
 		/* ATI/ATI#: show information pages */
 		switch (cmd_num) {
-		case 0:
-		case 3:
-			/* ATI/ATI0/ATI3: show product name */
-			outputf("\njcs WiFiStation %s\r\n",
-			    WIFISTATION_VERSION);
-			did_nl = true;
-			break;
-		case 1:
-			/* ATI1: checksum of RAM (not used) */
-			output("\n1337\r\n");
-			did_nl = true;
-			break;
-		case 2:
-			/* ATI2: test RAM (not used) */
-			break;
-		case 4: {
-			/* ATI4: show settings */
+		case 0: {
+			/* ATI0: show settings */
 			ip4_addr_t t_addr;
 			output("\n");
 
@@ -449,45 +434,6 @@ parse_cmd:
 				if (settings->bookmarks[i][0] != '\0')
 					outputf("ATDS bookmark %d:   %s\r\n",
 					    i + 1, settings->bookmarks[i]);
-			}
-			did_nl = true;
-			break;
-		}
-		case 5: {
-			/* ATI5: scan for wifi networks */
-			int n = WiFi.scanNetworks();
-
-			output("\n");
-
-			for (int i = 0; i < n; i++) {
-				outputf("%02d: %s (chan %d, %ddBm, ",
-				    i + 1,
-				    WiFi.SSID(i).c_str(),
-				    WiFi.channel(i),
-				    WiFi.RSSI(i));
-
-				switch (WiFi.encryptionType(i)) {
-				case ENC_TYPE_WEP:
-					output("WEP");
-					break;
-				case ENC_TYPE_TKIP:
-					output("WPA-PSK");
-					break;
-				case ENC_TYPE_CCMP:
-					output("WPA2-PSK");
-					break;
-				case ENC_TYPE_NONE:
-					output("NONE");
-					break;
-				case ENC_TYPE_AUTO:
-					output("WPA-PSK/WPA2-PSK");
-					break;
-				default:
-					outputf("?(%d)",
-					    WiFi.encryptionType(i));
-				}
-
-				output(")\r\n");
 			}
 			did_nl = true;
 			break;
@@ -720,6 +666,47 @@ parse_cmd:
 		} else if (strcmp(lcmd, "sb?") == 0) {
 			/* AT$SB?: print baud rate */
 			outputf("\n%d\r\n", settings->baud);
+			did_nl = true;
+		} else if (strcmp(lcmd, "scan") == 0) {
+			/* AT$SCAN: scan for wifi networks */
+			int n = WiFi.scanNetworks();
+
+			/* don't scroll off the screen */
+			if (n > 14)
+				n = 14;
+
+			output("\n");
+
+			for (int i = 0; i < n; i++) {
+				outputf("%02d: %s (chan %d, %ddBm, ",
+				    i + 1,
+				    WiFi.SSID(i).c_str(),
+				    WiFi.channel(i),
+				    WiFi.RSSI(i));
+
+				switch (WiFi.encryptionType(i)) {
+				case ENC_TYPE_WEP:
+					output("WEP");
+					break;
+				case ENC_TYPE_TKIP:
+					output("WPA-PSK");
+					break;
+				case ENC_TYPE_CCMP:
+					output("WPA2-PSK");
+					break;
+				case ENC_TYPE_NONE:
+					output("NONE");
+					break;
+				case ENC_TYPE_AUTO:
+					output("WPA-PSK/WPA2-PSK");
+					break;
+				default:
+					outputf("?(%d)",
+					    WiFi.encryptionType(i));
+				}
+
+				output(")\r\n");
+			}
 			did_nl = true;
 		} else if (strncmp(lcmd, "ssid=", 5) == 0) {
 			/* AT$SSID=...: set wifi ssid */
