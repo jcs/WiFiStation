@@ -35,6 +35,8 @@ enum {
 
 static char curcmd[128] = { 0 };
 static char lastcmd[128] = { 0 };
+static char lasthost[128] = { 0 };
+static uint16_t lastport = 0;
 static unsigned int curcmdlen = 0;
 static unsigned int lastcmdlen = 0;
 static uint8_t state = STATE_AT;
@@ -278,11 +280,11 @@ parse_cmd:
 		int chars;
 		int index;
 
-		if (len < 2)
-			goto error;
-
 		switch (lcmd[0]) {
 		case 't':
+			if (len < 2)
+				goto error;
+
 			/* ATDT: dial a host */
 			host = ohost = (char *)malloc(len);
 			if (host == NULL)
@@ -304,6 +306,30 @@ parse_cmd:
 				errstr = strdup("invalid hostname");
 				goto error;
 			}
+			break;
+		case 'l':
+			if (lcmd[1] == '?') {
+				/* ATDL?: show last dialed host */
+				if (lasthost[0] == '\0')
+					output("\n\r\n");
+				else
+					outputf("\n%s:%d\r\n", lasthost,
+					    lastport);
+				did_nl = true;
+				len = 0;
+				goto done_parsing;
+			} else if (lcmd[1] == '\0') {
+				/* ATDL: re-dial last dialed host */
+				if (lasthost[0] == '\0')
+					goto error;
+				int len = strlen(lasthost) + 1;
+				host = ohost = (char *)malloc(len);
+				if (host == NULL)
+					goto error;
+				strlcpy(host, lasthost, len);
+				port = lastport;
+			} else
+				goto error;
 			break;
 		case 's':
 			/* ATDS: dial a stored host */
@@ -351,6 +377,9 @@ parse_cmd:
 			errstr = strdup("blank hostname");
 			goto error;
 		}
+
+		strlcpy(lasthost, host, sizeof(lasthost));
+		lastport = port;
 
 		if (!settings->quiet && settings->verbal)
 			outputf("\nDIALING %s:%d\r\n", host, port);
