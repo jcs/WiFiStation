@@ -144,6 +144,10 @@ update_http_read_until_body(const char *url, long expected_length)
 		goto drain;
 	}
 
+	while ((tls ? client_tls : client).connected() &&
+	    !(tls ? client_tls : client).available())
+		ESP.wdtFeed();
+
 	return true;
 
 drain:
