@@ -1,4 +1,4 @@
-0.9
-437312
-0b77b1b9ad248905e86fcccb18579b11
+0.9.1
+437392
+7870280707be37cc5d8f0ac711527c4c
 https://raw.githubusercontent.com/jcs/WiFiStation/main/release/wifistation.bin
