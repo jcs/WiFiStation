@@ -24,7 +24,7 @@
 #include <Syslog.h>
 #include <WiFiUdp.h>
 
-#define WIFISTATION_VERSION	"0.9.1"
+#define WIFISTATION_VERSION	"0.9.2"
 
 /* enable various debugging */
 // #define AT_TRACE
