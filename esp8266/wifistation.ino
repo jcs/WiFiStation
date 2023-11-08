@@ -825,7 +825,7 @@ parse_cmd:
 			unsigned int bytes = 0;
 			unsigned char b;
 
-			if (sscanf(lcmd, "at$upload%u", &bytes) != 1 ||
+			if (sscanf(lcmd, "upload %u", &bytes) != 1 ||
 			    bytes < 1)
 				goto error;
 
