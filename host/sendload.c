@@ -167,7 +167,7 @@ main(int argc, char *argv[])
 	 * lost and we'll just get 'T', and we need to see a full response to
 	 * AT$UPLOAD later
 	 */
-	serial_write("AT\r", 4);
+	serial_write("AT\r", 3);
 	pfd[0].fd = serial_fd;
 	pfd[0].events = POLLIN;
 	while (poll(pfd, 1, 100) > 0)
