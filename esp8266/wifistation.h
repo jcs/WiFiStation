@@ -58,7 +58,7 @@ struct __attribute((__packed__)) eeprom_data {
 extern struct eeprom_data *settings;
 extern Syslog syslog;
 
-#define MAX_UPLOAD_SIZE (16 * 1024)
+#define MAX_UPLOAD_SIZE 65535
 
 /* these are ESP8266 pins */
 const int pRedLED   =  0;

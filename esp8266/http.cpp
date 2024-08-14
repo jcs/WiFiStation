@@ -139,7 +139,7 @@ http_setup(void)
 <p>
 Binary to execute on MailStation (<em>maximum size is %d bytes</em>):
 <p>
-<input type="file" name="file" maxlength="%d" size="%d">
+<input type="file" name="file" maxlength="%d">
 <br>
 <p>
 Ensure the WSLoader application is running on the MailStation ready to accept
@@ -148,7 +148,7 @@ the upload.
 <input type="submit" value="Upload">
 </form>
 )END",
-		    MAX_UPLOAD_SIZE, MAX_UPLOAD_SIZE, MAX_UPLOAD_SIZE);
+		    MAX_UPLOAD_SIZE, MAX_UPLOAD_SIZE);
 	});
 
 	/*
